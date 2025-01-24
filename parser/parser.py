@@ -1,0 +1,203 @@
+from typing import Optional, List
+import aiohttp
+import asyncio
+import re
+from bs4 import BeautifulSoup
+from db.models import GameState
+from loader import game_dao
+from .schemas import GameDate, AdditionalData
+from .utils import extract_limit
+from logging_config import parser_logger
+
+
+GAMES_URLS = [
+    ("https://kovrov.en.cx/GameCalendar.aspx?status=Coming&type=Team&zone=Virtual", "team"),
+    ("https://kovrov.en.cx/GameCalendar.aspx?status=Coming&type=Single&zone=Virtual", "single")
+]
+# GAMES_URLS = [
+#     ("https://tech.en.cx/GameCalendar.aspx?status=Coming&type=Team&zone=Virtual", "team"),
+#     ("https://tech.en.cx/GameCalendar.aspx?status=Coming&type=Single&zone=Virtual", "single")
+# ]
+
+DEFAULT_HEADERS = {
+    "User-Agent": "Mozilla/5.0",
+    "Accept": "text/html",
+    "Accept-Language": "en-US",
+}
+
+
+async def fetch_html(session: aiohttp.ClientSession, url: str, headers: Optional[dict] = None) -> Optional[str]:
+    """
+        Асинхронно получает HTML-страницу по заданному URL.
+
+        :param session: Объект aiohttp.ClientSession.
+        :param url: URL для загрузки.
+        :param headers: HTTP-заголовки запроса.
+        :return: Текст HTML или None при ошибке.
+    """
+    headers = headers or DEFAULT_HEADERS
+    try:
+        async with session.get(url, headers=headers) as response:
+            response.raise_for_status()
+            return await response.text()
+    except Exception as e:
+        parser_logger.error(f"Ошибка при загрузке {url}: {e}")
+        return None
+
+
+def extract_pagination_links(html: str) -> List[str]:
+    """
+        Извлекает ссылки пагинации из HTML.
+
+        :param html: Текст HTML.
+        :return: Список ссылок.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    pagination_td = soup.find('td', align="left")
+    return [a['href'] for a in pagination_td.find_all('a', href=True)] if pagination_td else []
+
+
+async def parse_game_data(html: str, game_type: str) -> List[GameDate]:
+    """
+        Парсит данные игр из HTML.
+
+        :param html: Текст HTML.
+        :param game_type: Тип игры (team или single).
+        :return: Список объектов GameDate.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    rows = soup.find_all("tr", id=lambda x: x and x.startswith("ctl20_ctl00_GamesRepeater"))
+
+    games = []
+    for row in rows:
+        cells = row.find_all("td")
+        row_data = [cell.get_text(strip=True) for cell in cells]
+
+        game_date = GameDate(
+            id=row_data[1].split('/')[1],
+            domain=row_data[3],
+            start_date=row_data[4],
+            name=row_data[5],
+            author=re.sub(r'\s+', '', row_data[6]),
+            price=row_data[7],
+            game_type=game_type
+        )
+
+        games.append(game_date)
+
+    parser_logger.info(f"Распарсено {len(games)} игр типа '{game_type}'.")
+    return games
+
+
+async def parse_additional_game_info(html: Optional[str]) -> AdditionalData:
+    """
+    Парсит дополнительные данные об игре.
+
+    :param html: Текст HTML или None.
+    :return: Объект AdditionalData.
+    """
+    additional_data = AdditionalData()
+
+    if not html:
+        return additional_data
+
+    soup = BeautifulSoup(html, "html.parser")
+
+    span_max_players = soup.find('span', id='spanMaxTeamPlayers')
+    if span_max_players:
+        additional_data.max_players = span_max_players.get_text(strip=True)
+
+    end_date_td = soup.find_all('td', height="18")
+    for span in end_date_td:
+        if span and "Время окончания" in span.text:
+            span_end_date = span.find('span', class_='white')
+            if span_end_date:
+                additional_data.end_date = ' '.join(span_end_date.text.strip().split()[:2])
+                # print(f"Extracted end date text: {' '.join(span_end_date.text.strip().split()[:2])}")
+                break
+
+    return additional_data
+
+
+async def fetch_and_parse_games(session: aiohttp.ClientSession, url: str, game_type: str) -> List[GameDate]:
+    """
+        Собирает и парсит данные игр с учетом пагинации.
+
+        :param session: Объект aiohttp.ClientSession.
+        :param url: URL игры.
+        :param game_type: Тип игры (team или single).
+        :return: Список объектов GameDate.
+    """
+    html = await fetch_html(session, url)
+    if not html:
+        parser_logger.warning(f"Не удалось загрузить страницу для URL: {url}")
+        return []
+
+    game_data = await parse_game_data(html, game_type=game_type)
+    pagination_links = extract_pagination_links(html)
+
+    for link in pagination_links:
+        html = await fetch_html(session, link)
+        data = await parse_game_data(html, game_type=game_type)
+        game_data.extend(data)
+
+    return game_data
+
+
+async def gather_additional_game_data(session: aiohttp.ClientSession, game_data: List[GameDate]) -> None:
+    """
+    Собирает и добавляет дополнительные данные для каждой игры.
+
+    :param session: Объект aiohttp.ClientSession.
+    :param game_data: Список игр для обработки.
+    """
+    tasks = [fetch_html(session, game.link) for game in game_data]
+    html_results = await asyncio.gather(*tasks)
+
+    tasks_for_additional_data = []
+    for game, html in zip(game_data, html_results):
+        tasks_for_additional_data.append(parse_additional_game_info(html))
+
+    additional_data_results = await asyncio.gather(*tasks_for_additional_data)
+
+    for game, additional_data in zip(game_data, additional_data_results):
+        game.max_players = extract_limit(additional_data.max_players)
+        game.update_end_date(additional_data.end_date)
+
+
+async def run_parsing() -> None:
+    """
+        Главная функция для запуска процесса парсинга.
+    """
+    max_connections = 150
+    connector = aiohttp.TCPConnector(limit=max_connections)
+    timeout = aiohttp.ClientTimeout(total=300)
+
+    async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+        all_game_data = []
+        for url, game_type in GAMES_URLS:
+            game_data = await fetch_and_parse_games(session, url, game_type)
+            all_game_data.extend(game_data)
+
+            await gather_additional_game_data(session, all_game_data)
+
+        parser_logger.info(f"Всего игр загружено: {len(all_game_data)}.")
+
+        existing_games = await game_dao.get_all()
+        existing_games = [game for game in existing_games if game.state != GameState.ACTIVE.value]
+        existing_game_ids = {game.id for game in existing_games}
+        parsed_game_ids = {game.id for game in all_game_data}
+
+        # Удаление игр, которых нет в новых данных
+        games_to_delete = existing_game_ids - parsed_game_ids
+        for game_id in games_to_delete:
+            await game_dao.delete(id=game_id)
+            parser_logger.info(f"Удален объект: {game_id}")
+
+        await asyncio.sleep(10)
+        for game in all_game_data:
+            await game_dao.create(**game.model_dump())
+
+
+if __name__ == "__main__":
+    asyncio.run(run_parsing())
