@@ -1,7 +1,7 @@
 from db.dao.base import BaseDAO
 from db.models import GameDate
+from messages.messages import send_game_message_date_change
 from logging_config import parser_logger
-from utils import send_game_message_date_change
 
 
 class GameDateDAO(BaseDAO):

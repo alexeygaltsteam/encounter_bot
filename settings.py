@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     DB_PASS: str
     DB_NAME: str
     BOT_TOKEN: str
+    CHAT_ID: str
 
     @property
     def get_database_url(self):

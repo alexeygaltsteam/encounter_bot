@@ -14,10 +14,7 @@ GAMES_URLS = [
     ("https://kovrov.en.cx/GameCalendar.aspx?status=Coming&type=Team&zone=Virtual", "team"),
     ("https://kovrov.en.cx/GameCalendar.aspx?status=Coming&type=Single&zone=Virtual", "single")
 ]
-# GAMES_URLS = [
-#     ("https://tech.en.cx/GameCalendar.aspx?status=Coming&type=Team&zone=Virtual", "team"),
-#     ("https://tech.en.cx/GameCalendar.aspx?status=Coming&type=Single&zone=Virtual", "single")
-# ]
+
 
 DEFAULT_HEADERS = {
     "User-Agent": "Mozilla/5.0",
@@ -188,7 +185,6 @@ async def run_parsing() -> None:
         existing_game_ids = {game.id for game in existing_games}
         parsed_game_ids = {game.id for game in all_game_data}
 
-        # Удаление игр, которых нет в новых данных
         games_to_delete = existing_game_ids - parsed_game_ids
         for game_id in games_to_delete:
             await game_dao.delete(id=game_id)
