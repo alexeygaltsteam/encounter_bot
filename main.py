@@ -29,8 +29,10 @@ async def on_startup(dp):
     # scheduler.add_job(run_parsing, 'interval', hours=24)
     # scheduler.add_job(run_parsing, CronTrigger(hour="0", minute="0", second="0"))
     scheduler.add_job(run_parsing, CronTrigger(minute="0"))
-    scheduler.add_job(check_and_send_messages, CronTrigger(hour="12", minute="0", second="0"), args=[game_dao, bot])
-    scheduler.add_job(update_game_states, CronTrigger(hour="0,12", minute="0", second="0"))
+    # scheduler.add_job(check_and_send_messages, CronTrigger(hour="12", minute="0", second="0"), args=[game_dao, bot])
+    scheduler.add_job(check_and_send_messages, CronTrigger(minute="0"))
+    # scheduler.add_job(update_game_states, CronTrigger(hour="0,12", minute="0", second="0"))
+    scheduler.add_job(update_game_states, CronTrigger(minute="0"))
     scheduler.start()
 
     await dp.start_polling(bot)
