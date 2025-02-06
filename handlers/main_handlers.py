@@ -1,21 +1,33 @@
-from aiogram import Router, types, Bot
-from aiogram.exceptions import TelegramForbiddenError
+from aiogram import Router, types
 from aiogram.filters import Command, CommandStart
-from aiogram.types import Message, BotCommand, CallbackQuery
+from aiogram.types import Message, CallbackQuery
 from db.models import GameState
+from db.utils import ensure_user_registered
 from filters import PrivateChatFilter
-from keyboards.constants import PRIVATE_COMMANDS, CHAT_COMMANDS
-from keyboards.game_keyboards import create_main_game_keyboard, SubscribeCallbackData, create_pagination_keyboard, \
-    PaginationCallbackData
-from loader import game_dao
+from keyboards.constants import PRIVATE_COMMANDS, CHAT_COMMANDS, NOT_NICKNAME
+from keyboards.game_keyboards import create_main_game_keyboard, SubscribeCallbackData, create_team_finder_keyboard, \
+    GameRoleCallbackData
+from loader import game_dao, user_dao, user_subs_dao, user_role_dao
+from messages.messages import format_game_message
 
 router = Router()
 
 
 @router.message(CommandStart(), PrivateChatFilter())
 async def cmd_start(message: types.Message):
-    await message.answer('''Привет! 👋
-🤖 Enc bot. Чем могу помочь?''')
+    if not message.from_user.username:
+        await message.answer(NOT_NICKNAME)
+        return
+
+    user = await user_dao.get(telegram_id=message.from_user.id)
+
+    if not user:
+        user = await user_dao.create(
+            telegram_id=message.from_user.id,
+            nickname=message.from_user.username or f"User_{message.from_user.id}"
+        )
+
+    await message.answer(f'Привет {user.nickname}! 👋 Я Enc bot')
 
 
 def split_games_list(games, max_length=4096):
@@ -48,6 +60,7 @@ def split_games_list(games, max_length=4096):
 
 
 @router.message(Command(commands='upcoming'))
+@ensure_user_registered(user_dao)
 async def upcoming_games_command(message: Message):
     all_upcoming_games = await game_dao.get_all(
         state=GameState.UPCOMING.value, is_announcement_sent=True
@@ -72,6 +85,7 @@ async def upcoming_games_command(message: Message):
 
 
 @router.message(Command(commands='active'))
+@ensure_user_registered(user_dao)
 async def active_games_command(message: Message):
     all_upcoming_games = await game_dao.get_all(
         state=GameState.ACTIVE.value
@@ -96,6 +110,7 @@ async def active_games_command(message: Message):
 
 
 @router.message(Command(commands='help'))
+@ensure_user_registered(user_dao)
 async def help_command(message: types.Message):
     if message.chat.type == 'private':
         help_text = "\n".join(f"{command}: {description}" for command, description in PRIVATE_COMMANDS.items())
@@ -115,14 +130,81 @@ async def handle_subscribe_callback(callback_query: CallbackQuery, callback_data
 
     user_id = callback_query.from_user.id
 
-    if action == "subscribe":
-        # await add_user_to_subscription(game_id, user_id)
-        message_text = "Привет! Вы нажали на кнопку для перехода к боту. Для дальнейших действий переходите по ссылке: https://t.me/enc_finder_bot."
-        try:
-            await bot.send_message(user_id, message_text)
-            await bot.answer_callback_query(callback_query.id, text="Мы отправили вам сообщение!")
-        except TelegramForbiddenError:
-            await bot.answer_callback_query(callback_query.id, text="Мы не смогли отправиль личное сообщение")
+    message = ''
 
+    if action == "subscribe":
+        message = await user_subs_dao.add_user_to_subscription(game_id=game_id, user_id=user_id)
+
+    if action == "unsubscribe":
+        message = await user_subs_dao.remove_user_from_subscription(user_id=user_id, game_id=game_id)
+        try:
+            await bot.delete_message(chat_id=callback_query.message.chat.id,
+                                     message_id=callback_query.message.message_id)
         except Exception as e:
-            print(f"Ошибка при отправке личного сообщения: {e}")
+            print(f"Ошибка при удалении сообщения: {e}")
+
+    try:
+        # await bot.a(user_id, message)
+        await bot.answer_callback_query(callback_query.id, text=message)
+        #     await bot.answer_callback_query(callback_query.id, text="Мы отправили вам сообщение!")
+        # except TelegramForbiddenError:
+        #     await bot.answer_callback_query(callback_query.id, text="Мы не смогли отправиль личное сообщение")
+
+    except Exception as e:
+        print(f"Ошибка при отправке личного сообщения: {e}")
+
+
+@router.message(Command(commands='subs'))
+@ensure_user_registered(user_dao)
+async def subs_command(message: types.Message):
+    games = await user_dao.get_user_subscribed_games(telegram_id=message.from_user.id)
+
+    if not games:
+        await message.answer("Вы не подписаны ни на одну игру.")
+        return
+
+    for game in games:
+        header = "🔎 <b>Поиск игроков и команд!</b>"
+        text = format_game_message(game, header)
+        keyboard = create_team_finder_keyboard(game.id)
+
+        await message.answer(
+            text,
+            disable_web_page_preview=True,
+            parse_mode="HTML",
+            reply_markup=keyboard
+        )
+
+
+@router.callback_query(GameRoleCallbackData.filter())
+async def handle_game_role_callback(callback_query: CallbackQuery, callback_data: GameRoleCallbackData):
+    from __main__ import bot
+    game_id = callback_data.game_id
+    action = callback_data.action
+    user_id = callback_query.from_user.id
+
+    role = "Команда" if action == "find_player" else "Игрок"
+    await user_role_dao.add_user_role(user_id=user_id, game_id=game_id, role=role)
+
+    opposite_role = "Команда" if role == "Игрок" else "Игрок"
+    matched_users = await user_role_dao.get_opposite_role_users(game_id, opposite_role)
+    message = ''
+    user_list = "\n".join([f"@{nickname}" for nickname in matched_users])
+    if matched_users:
+        if role == "Команда":
+            message += f"👥 Доступные игроки:\n{user_list}"
+        else:
+            message += f"👑 Доступные капитаны команды:\n{user_list}"
+    else:
+        message += f"😔 Пока нет доступных."
+
+    if role == "Игрок":
+        response_text = "Теперь вы ищете команду."
+    else:
+        response_text = "Теперь вы ищете игроков."
+
+    try:
+        await bot.answer_callback_query(callback_query.id, text=response_text)
+        await bot.send_message(chat_id=callback_query.message.chat.id, text=message, parse_mode="HTML")
+    except Exception as e:
+        print(f"Ошибка при отправке сообщения в чат: {e}")

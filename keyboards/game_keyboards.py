@@ -10,6 +10,11 @@ class SubscribeCallbackData(CallbackData, prefix="subscribe"):
     action: str
 
 
+class GameRoleCallbackData(CallbackData, prefix="game_role"):
+    game_id: int
+    action: str
+
+
 class PaginationCallbackData(CallbackData, prefix="pagination"):
     action: str
     page: int
@@ -20,7 +25,7 @@ def create_main_game_keyboard(link: str, game_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Ссылка на игру", url=link)],
         [InlineKeyboardButton(text="Хочу играть!",
-                              callback_data=SubscribeCallbackData(game_id=game_id, action="subscribe").pack())]
+                              callback_data=SubscribeCallbackData(game_id=game_id, action="subscribe").pack())],
     ])
 
 
@@ -53,3 +58,15 @@ def create_pagination_keyboard(page: int, total_pages: int) -> InlineKeyboardMar
     keyboard = InlineKeyboardMarkup(row_width=2, inline_keyboard=[buttons])
 
     return keyboard
+
+
+def create_team_finder_keyboard(game_id: int) -> InlineKeyboardMarkup:
+    """Создает клавиатуру с кнопками 'Найти игрока' и 'Найти команду'"""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Найти игрока",
+                              callback_data=GameRoleCallbackData(game_id=game_id, action="find_player").pack())],
+        [InlineKeyboardButton(text="Найти команду",
+                              callback_data=GameRoleCallbackData(game_id=game_id, action="find_team").pack())],
+        [InlineKeyboardButton(text="❌ Отписаться",
+                              callback_data=SubscribeCallbackData(game_id=game_id, action="unsubscribe").pack())]
+    ])

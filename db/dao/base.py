@@ -12,6 +12,7 @@ class BaseDAO:
         instance = self.__model__(**kwargs)
         self.session.add(instance)
         await self.session.commit()
+        return instance
 
     async def get(self, **kwargs):
         stmt = select(self.__model__).filter_by(**kwargs)

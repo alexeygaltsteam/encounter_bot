@@ -43,3 +43,22 @@ async def update_game_states():
         bot_logger.info("Game state update process completed successfully.")
     except Exception as e:
         bot_logger.error(f"Error during game state update: {e}")
+
+
+
+from functools import wraps
+from aiogram import types
+from aiogram.dispatcher.event.bases import CancelHandler
+
+def ensure_user_registered(user_dao):
+    """ Декоратор для проверки, зарегистрирован ли пользователь. """
+    def decorator(handler):
+        @wraps(handler)
+        async def wrapper(message: types.Message, *args, **kwargs):
+            user = await user_dao.get(telegram_id=message.from_user.id)
+            if not user:
+                await message.answer("❌ Для начала работы нажмите /start")
+                return
+            return await handler(message, *args, **kwargs)
+        return wrapper
+    return decorator

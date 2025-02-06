@@ -3,21 +3,31 @@ from datetime import datetime, timedelta
 from aiogram.enums import ParseMode
 from db.models import GameDate
 from keyboards.constants import GAME_ANNOUNCEMENT, GAME_START, GAME_DATE_CHANGE
-from keyboards.game_keyboards import create_main_game_keyboard
+from keyboards.game_keyboards import create_main_game_keyboard, create_team_finder_keyboard
 from logging_config import bot_logger
 from settings import settings
 
 
+# def format_game_message(game: GameDate, header: str) -> str:
+#     """Формирует текст сообщения"""
+#     return f"""
+#     {header} {game.name}
+#     <b>Начало:</b> {game.start_date.strftime('%d.%m.%Y %H:%M:%S')}
+#     <b>Автор:</b> {game.author}
+#     <b>Цена:</b> {game.price}
+#     <b>Тип игры:</b> {game.game_type}
+#     <b>Количество игроков:</b> {game.max_players}
+#     """
 def format_game_message(game: GameDate, header: str) -> str:
-    """Формирует текст сообщения"""
-    return f"""
-    {header} {game.name}
-    <b>Начало:</b> {game.start_date.strftime('%d.%m.%Y %H:%M:%S')}
-    <b>Автор:</b> {game.author}
-    <b>Цена:</b> {game.price}
-    <b>Тип игры:</b> {game.game_type}
-    <b>Количество игроков:</b> {game.max_players}
-    """
+    """Формирует текст сообщения с информацией об игре"""
+    return f"""{header}
+<b>🎮 Название:</b> {game.name}
+<b>🕒 Начало:</b> {game.start_date.strftime('%d.%m.%Y %H:%M:%S')}
+<b>👤 Автор:</b> {game.author}
+<b>💰 Цена:</b> {game.price} en usd
+<b>🎭 Тип игры:</b> {game.game_type}
+<b>👥 Количество игроков:</b> {game.max_players}
+"""
 
 
 async def send_game_message(bot, game, message_type: str):
@@ -37,7 +47,7 @@ async def send_game_message(bot, game, message_type: str):
         return
 
     message = format_game_message(game, header)
-    keyboard = create_main_game_keyboard(game.link,game_id=game.id)
+    keyboard = create_main_game_keyboard(game.link, game_id=game.id)
 
     try:
         await bot.send_message(settings.CHAT_ID, message, parse_mode=ParseMode.HTML, reply_markup=keyboard)
