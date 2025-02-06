@@ -1,3 +1,4 @@
+import os
 import logging
 from logging.handlers import RotatingFileHandler
 
@@ -5,6 +6,11 @@ LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
 MAX_LOG_SIZE = 5 * 1024 * 1024
 BACKUP_COUNT = 2
+
+log_dir = 'logs'
+
+if not os.path.exists(log_dir):
+    os.makedirs(log_dir)
 
 
 def setup_logger(name: str, log_file: str, console_level: int, file_level: int) -> logging.Logger:
