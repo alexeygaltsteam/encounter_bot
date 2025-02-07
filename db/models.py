@@ -81,7 +81,7 @@
 #     def __repr__(self):
 #         return f"<GameDate(id={self.id}, name='{self.name}')>"
 
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, Boolean, Enum, text
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, Boolean, Enum, text, BigInteger
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.ext.declarative import declarative_base
 from enum import Enum as PyEnum
@@ -135,7 +135,7 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    telegram_id = Column(Integer, nullable=False, unique=True)
+    telegram_id = Column(BigInteger, nullable=False, unique=True)
     nickname = Column(String, nullable=False)
 
     def __repr__(self):
