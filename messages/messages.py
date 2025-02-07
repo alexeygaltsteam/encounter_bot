@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from aiogram.enums import ParseMode
 from db.models import GameDate
 from keyboards.constants import GAME_ANNOUNCEMENT, GAME_START, GAME_DATE_CHANGE
-from keyboards.game_keyboards import create_main_game_keyboard, create_team_finder_keyboard
+from keyboards.game_keyboards import create_main_game_keyboard, create_team_finder_keyboard, default_game_keyboard
 from logging_config import bot_logger
 from settings import settings
 
@@ -47,7 +47,7 @@ async def send_game_message(bot, game, message_type: str):
         return
 
     message = format_game_message(game, header)
-    keyboard = create_main_game_keyboard(game.link, game_id=game.id)
+    keyboard = default_game_keyboard(game.link)
 
     try:
         await bot.send_message(settings.CHAT_ID, message, parse_mode=ParseMode.HTML, reply_markup=keyboard)
@@ -102,7 +102,7 @@ async def send_game_message_date_change(
             <b>Новый конец:</b> {new_end_date.strftime('%d.%m.%Y %H:%M:%S')}
             """
 
-    keyboard = create_main_game_keyboard(game.link, game_id=game.id)
+    keyboard = default_game_keyboard(game.link)
 
     try:
         await bot.send_message(settings.CHAT_ID, message, parse_mode=ParseMode.HTML, reply_markup=keyboard)

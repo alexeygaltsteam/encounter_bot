@@ -20,6 +20,12 @@ class PaginationCallbackData(CallbackData, prefix="pagination"):
     page: int
 
 
+def default_game_keyboard(link: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Ссылка на игру", url=link)],
+    ])
+
+
 def create_main_game_keyboard(link: str, game_id: int) -> InlineKeyboardMarkup:
     """Создает клавиатуру с кнопками"""
     return InlineKeyboardMarkup(inline_keyboard=[
