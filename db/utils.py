@@ -16,7 +16,7 @@ async def update_game_states():
 
         games = await game_dao.get_all()
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now().replace(tzinfo=None)
 
         for game in games:
             game_start_date = game.start_date.replace(tzinfo=None)
