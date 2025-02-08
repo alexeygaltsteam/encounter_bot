@@ -1,7 +1,7 @@
 from sqlalchemy import select
 
 from db.dao.base import BaseDAO
-from db.models import UserGameSubscription, UserGameRole, User
+from db.models import UserGameSubscription, UserGameRole, User, GameDate
 
 
 class UserGameSubscriptionDAO(BaseDAO):
@@ -12,11 +12,20 @@ class UserGameSubscriptionDAO(BaseDAO):
             select(User).filter_by(telegram_id=user_id)
         )
         user = existing_user.scalars().first()
+
+        existing_game = await self.session.execute(
+            select(GameDate).filter_by(id=game_id)
+        )
+        game = existing_game.scalars().first()
+
+        if not game:
+            return f"Упс {game_id} уже не существует."
+
         existing_subscription = await self.get(user_id=user.id, game_id=game_id)
 
         if existing_subscription:
             return f"Вы уже подписаны на игру {game_id}."
-        
+
         await self.create(user_id=user.id, game_id=game_id)
         return f"Вы успешно подписались на игру {game_id}."
 
@@ -47,6 +56,14 @@ class UserGameRoleDAO(BaseDAO):
 
         if not user:
             return "Ошибка: Пользователь не найден."
+
+        existing_game = await self.session.execute(
+            select(GameDate).filter_by(id=game_id)
+        )
+        game = existing_game.scalars().first()
+
+        if not game:
+            return f"Упс {game_id} уже не существует."
 
         existing_role = await self.get(user_id=user.id, game_id=game_id)
 

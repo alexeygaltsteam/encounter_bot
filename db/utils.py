@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from db.dao import GameDateDAO
 from db.models import GameState
 from loader import db
@@ -16,7 +16,7 @@ async def update_game_states():
 
         games = await game_dao.get_all()
 
-        now = datetime.now().replace(tzinfo=None)
+        now = datetime.now(timezone.utc)
 
         for game in games:
             game_start_date = game.start_date.replace(tzinfo=None)
@@ -33,11 +33,7 @@ async def update_game_states():
                 game.state = new_state.value
                 await game_dao.session.merge(game)
 
-            if game.state != new_state.value:
-                bot_logger.info(f"Updating game {game.id} from {game.state} to {new_state}.")
-                game.state = new_state.value
-                await game_dao.session.merge(game)
-
+        await game_dao.session.flush()
         await game_dao.session.commit()
         await game_dao.session.close()
         bot_logger.info("Game state update process completed successfully.")
