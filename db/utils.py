@@ -18,7 +18,7 @@ async def update_game_states():
         games = await game_dao.get_all()
 
         moscow_tz = pytz.timezone('Europe/Moscow')
-        now = datetime.now(moscow_tz)
+        now = datetime.now(moscow_tz).replace(tzinfo=None)
         # now = datetime.now().replace(tzinfo=None)
 
         bot_logger.info("-------------")
