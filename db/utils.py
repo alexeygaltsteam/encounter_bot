@@ -1,8 +1,9 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from db.dao import GameDateDAO
 from db.models import GameState
 from loader import db
 from logging_config import bot_logger
+import pytz
 
 game_dao = GameDateDAO(db.async_session)
 
@@ -16,7 +17,10 @@ async def update_game_states():
 
         games = await game_dao.get_all()
 
-        now = datetime.now().replace(tzinfo=None)
+        moscow_tz = pytz.timezone('Europe/Moscow')
+        now = datetime.now(moscow_tz)
+        # now = datetime.now().replace(tzinfo=None)
+
         bot_logger.info("-------------")
         bot_logger.info(now)
         bot_logger.info("-------------")
