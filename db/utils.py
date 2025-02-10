@@ -19,14 +19,9 @@ async def update_game_states():
 
         moscow_tz = pytz.timezone('Europe/Moscow')
         now = datetime.now(moscow_tz).replace(tzinfo=None)
-        # now = datetime.now().replace(tzinfo=None)
 
-        bot_logger.info("-------------")
-        bot_logger.info(now)
-        bot_logger.info("-------------")
         for game in games:
             game_start_date = game.start_date.replace(tzinfo=None)
-            bot_logger.info(f"Game {game.id} -- start_date : {game_start_date}" )
 
             if game_start_date > now:
                 new_state = GameState.UPCOMING
@@ -48,13 +43,14 @@ async def update_game_states():
         bot_logger.error(f"Error during game state update: {e}")
 
 
-
 from functools import wraps
 from aiogram import types
 from aiogram.dispatcher.event.bases import CancelHandler
 
+
 def ensure_user_registered(user_dao):
     """ Декоратор для проверки, зарегистрирован ли пользователь. """
+
     def decorator(handler):
         @wraps(handler)
         async def wrapper(message: types.Message, *args, **kwargs):
@@ -63,5 +59,7 @@ def ensure_user_registered(user_dao):
                 await message.answer("❌ Для начала работы нажмите /start")
                 return
             return await handler(message, *args, **kwargs)
+
         return wrapper
+
     return decorator
