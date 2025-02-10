@@ -55,7 +55,7 @@ class GameDateDAO(BaseDAO):
                     # existing_instance.is_announcement_sent = False
                     # existing_instance.is_start_message = False
 
-                await self.session.commit()
+            await self.session.commit()
 
         else:
             instance = self.__model__(**kwargs)
