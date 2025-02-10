@@ -17,12 +17,12 @@ async def update_game_states():
         games = await game_dao.get_all()
 
         now = datetime.now().replace(tzinfo=None)
-        print("-------------")
-        print(now)
-        print("-------------")
+        bot_logger.info("-------------")
+        bot_logger.info(now)
+        bot_logger.info("-------------")
         for game in games:
             game_start_date = game.start_date.replace(tzinfo=None)
-            print(f"Game {game.id} -- start_date : {game_start_date}" )
+            bot_logger.info(f"Game {game.id} -- start_date : {game_start_date}" )
 
             if game_start_date > now:
                 new_state = GameState.UPCOMING
