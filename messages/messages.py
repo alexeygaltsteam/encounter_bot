@@ -73,7 +73,9 @@ async def send_game_message_date_change(
         game,
         message_type: str = "start",
         new_start_date: Optional[datetime] = None,
-        new_end_date: Optional[datetime] = None
+        new_end_date: Optional[datetime] = None,
+        old_start_date: Optional[datetime] = None,
+        old_end_date: Optional[datetime] = None,
 ):
     """
     Отправляет сообщение в чат о событии, связанном с игрой.
@@ -83,6 +85,8 @@ async def send_game_message_date_change(
     :param message_type: тип сообщения ("start", "reschedule_start", "reschedule_end", "both_reschedule").
     :param new_start_date: новая дата начала игры, если изменена.
     :param new_end_date: новая дата конца игры, если изменена.
+    :param old_end_date: старая дата конца  игры.
+    :param old_start_date: старая дата начала игры.
     """
     header = GAME_DATE_CHANGE
     message = format_game_message(game, header)
@@ -90,16 +94,21 @@ async def send_game_message_date_change(
     if message_type == "reschedule_start":
         message += f"""
             ⚠️ Внимание! Дата начала игры изменена.
+            <b>Предыдущая дата начала:</b> {old_start_date.strftime('%d.%m.%Y %H:%M:%S')}
             <b>Новое начало:</b> {new_start_date.strftime('%d.%m.%Y %H:%M:%S')}
             """
     elif message_type == "reschedule_end":
         message += f"""
             ⚠️ Внимание! Дата окончания игры изменена.
+            <b>Предыдущая дата конца:</b> {old_end_date.strftime('%d.%m.%Y %H:%M:%S')}
             <b>Новый конец:</b> {new_end_date.strftime('%d.%m.%Y %H:%M:%S')}
             """
     elif message_type == "both_reschedule":
         message += f"""
             ⚠️ Внимание! Изменены даты начала и окончания игры.
+            <b>Предыдущая дата начала:</b> {old_start_date.strftime('%d.%m.%Y %H:%M:%S')}
+            <b>Предыдущая дата конца:</b> {old_end_date.strftime('%d.%m.%Y %H:%M:%S')}
+            
             <b>Новое начало:</b> {new_start_date.strftime('%d.%m.%Y %H:%M:%S')}
             <b>Новый конец:</b> {new_end_date.strftime('%d.%m.%Y %H:%M:%S')}
             """

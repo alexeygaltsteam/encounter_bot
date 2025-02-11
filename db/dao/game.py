@@ -40,21 +40,25 @@ class GameDateDAO(BaseDAO):
                             game=existing_instance,
                             message_type="both_reschedule",
                             new_start_date=new_start_date,
-                            new_end_date=new_end_date
+                            old_start_date=existing_instance.start_date,
+                            new_end_date=new_end_date,
+                            old_end_date=existing_instance.end_date,
                         )
                     elif start_date_updated:
                         await send_game_message_date_change(
                             bot=bot,
                             game=existing_instance,
                             message_type="reschedule_start",
-                            new_start_date=new_start_date
+                            new_start_date=new_start_date,
+                            old_start_date=existing_instance.start_date,
                         )
                     elif end_date_updated:
                         await send_game_message_date_change(
                             bot=bot,
                             game=existing_instance,
                             message_type="reschedule_end",
-                            new_end_date=new_end_date
+                            new_end_date=new_end_date,
+                            old_end_date=existing_instance.end_date,
                         )
                     # existing_instance.is_announcement_sent = False
                     # existing_instance.is_start_message = False
