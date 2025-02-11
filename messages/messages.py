@@ -24,6 +24,7 @@ def format_game_message(game: GameDate, header: str) -> str:
     return f"""{header}
 <b>🎮 Название:</b> {game.name}
 <b>🕒 Начало:</b> {game.start_date.strftime('%d.%m.%Y %H:%M:%S')}
+<b>🕒 Конец:</b> {game.end_date.strftime('%d.%m.%Y %H:%M:%S')}
 <b>👤 Автор:</b> {game.author}
 <b>💰 Цена:</b> {game.price} en usd
 <b>🎭 Тип игры:</b> {game.game_type}

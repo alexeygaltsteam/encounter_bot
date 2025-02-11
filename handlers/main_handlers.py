@@ -138,11 +138,19 @@ async def handle_subscribe_callback(callback_query: CallbackQuery, callback_data
 
     if action == "unsubscribe":
         message = await user_subs_dao.remove_user_from_subscription(user_id=user_id, game_id=game_id)
+
+        try:
+            await bot.answer_callback_query(callback_query.id, text=f"Вы успешно отписались от игры {game_id}!")
+        except Exception as e:
+            print(f"Ошибка при отправке сплывающего сообщения: {e}")
+
         try:
             await bot.delete_message(chat_id=callback_query.message.chat.id,
                                      message_id=callback_query.message.message_id)
         except Exception as e:
             print(f"Ошибка при удалении сообщения: {e}")
+
+
 
     try:
         # await bot.a(user_id, message)
