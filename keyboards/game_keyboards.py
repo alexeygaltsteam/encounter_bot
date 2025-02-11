@@ -10,6 +10,11 @@ class SubscribeCallbackData(CallbackData, prefix="subscribe"):
     action: str
 
 
+class SubscribeFromChannelCallbackData(CallbackData, prefix="subscribe_channel"):
+    game_id: int
+    action: str
+
+
 class GameRoleCallbackData(CallbackData, prefix="game_role"):
     game_id: int
     action: str
@@ -20,9 +25,11 @@ class PaginationCallbackData(CallbackData, prefix="pagination"):
     page: int
 
 
-def default_game_keyboard(link: str) -> InlineKeyboardMarkup:
+def default_game_keyboard(link: str, game_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Ссылка на игру", url=link)],
+        [InlineKeyboardButton(text="Хочу играть!",
+                              callback_data=SubscribeFromChannelCallbackData(game_id=game_id, action="subscribe_channel").pack())]
     ])
 
 
@@ -66,9 +73,10 @@ def create_pagination_keyboard(page: int, total_pages: int) -> InlineKeyboardMar
     return keyboard
 
 
-def create_team_finder_keyboard(game_id: int) -> InlineKeyboardMarkup:
+def create_team_finder_keyboard(game_id: int, link : str) -> InlineKeyboardMarkup:
     """Создает клавиатуру с кнопками 'Найти игрока' и 'Найти команду'"""
     return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Ссылка на игру", url=link)],
         [InlineKeyboardButton(text="Найти игрока",
                               callback_data=GameRoleCallbackData(game_id=game_id, action="find_player").pack())],
         [InlineKeyboardButton(text="Найти команду",

@@ -1,9 +1,10 @@
 from typing import Optional
 from datetime import datetime, timedelta
+import pytz
 from aiogram.enums import ParseMode
 from db.models import GameDate
 from keyboards.constants import GAME_ANNOUNCEMENT, GAME_START, GAME_DATE_CHANGE
-from keyboards.game_keyboards import create_main_game_keyboard, create_team_finder_keyboard, default_game_keyboard
+from keyboards.game_keyboards import default_game_keyboard
 from logging_config import bot_logger
 from settings import settings
 
@@ -47,7 +48,7 @@ async def send_game_message(bot, game, message_type: str):
         return
 
     message = format_game_message(game, header)
-    keyboard = default_game_keyboard(game.link)
+    keyboard = default_game_keyboard(game.link, game.id)
 
     try:
         await bot.send_message(settings.CHAT_ID, message, parse_mode=ParseMode.HTML, reply_markup=keyboard)
@@ -102,7 +103,7 @@ async def send_game_message_date_change(
             <b>Новый конец:</b> {new_end_date.strftime('%d.%m.%Y %H:%M:%S')}
             """
 
-    keyboard = default_game_keyboard(game.link)
+    keyboard = default_game_keyboard(game.link, game.id)
 
     try:
         await bot.send_message(settings.CHAT_ID, message, parse_mode=ParseMode.HTML, reply_markup=keyboard)
@@ -114,7 +115,11 @@ async def send_game_message_date_change(
 async def send_announcement_messages(game_dao, bot):
     """Отправляем анонсы для игр, у которых не были отправлены анонсы."""
 
-    now = datetime.now()
+    moscow_tz = pytz.timezone('Europe/Moscow')
+    now = datetime.now(moscow_tz).replace(tzinfo=None)
+
+    # now = datetime.now()
+
     five_days_before = now + timedelta(days=5)
 
     games_to_announce = await game_dao.get_all(
@@ -137,7 +142,11 @@ async def send_announcement_messages(game_dao, bot):
 async def send_start_messages(game_dao, bot):
     """Отправляем стартовые сообщения для игр, у которых не были отправлены стартовые сообщения."""
 
-    now = datetime.now()
+    # now = datetime.now()
+
+    moscow_tz = pytz.timezone('Europe/Moscow')
+    now = datetime.now(moscow_tz).replace(tzinfo=None)
+
     twelve_hours_before = now + timedelta(hours=12)
     games_to_start = await game_dao.get_all(
         is_start_message_sent=False,

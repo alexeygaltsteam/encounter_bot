@@ -17,6 +17,10 @@ class GameDateDAO(BaseDAO):
             start_date_updated = new_start_date and new_start_date != existing_instance.start_date
             end_date_updated = new_end_date and new_end_date != existing_instance.end_date
 
+            if start_date_updated and (new_start_date - existing_instance.start_date).days >= 5:
+                existing_instance.is_announcement_sent = False
+                existing_instance.is_start_message_sent = False
+
             if start_date_updated:
                 existing_instance.start_date = new_start_date
             if end_date_updated:

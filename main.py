@@ -1,6 +1,6 @@
 import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from aiogram import Router, types
+from aiogram import Router
 from apscheduler.triggers.cron import CronTrigger
 
 from db.utils import update_game_states
@@ -27,14 +27,18 @@ async def on_startup(dp):
 
     scheduler = AsyncIOScheduler()
 
-    # scheduler.add_job(run_parsing, CronTrigger(hour="0,18", minute="0"))
-    # scheduler.add_job(check_and_send_messages, CronTrigger(hour="8,12,16,20", minute="0"), args=[game_dao, bot])
-    # scheduler.add_job(update_game_states, CronTrigger(minute="0"))
-
     scheduler.add_job(run_parsing, CronTrigger(minute="15,45"))
     scheduler.add_job(check_and_send_messages, CronTrigger(minute="20,50"), args=[game_dao, bot])
     scheduler.add_job(update_game_states, CronTrigger(minute="5,35"))
+
     scheduler.start()
+
+    #
+    # from apscheduler.triggers.interval import IntervalTrigger
+    #
+    # scheduler.add_job(run_parsing, IntervalTrigger(minutes=2))
+    # scheduler.add_job(check_and_send_messages, IntervalTrigger(minutes=2), args=[game_dao, bot])
+    # scheduler.add_job(update_game_states, IntervalTrigger(minutes=2))
 
     await dp.start_polling(bot)
 

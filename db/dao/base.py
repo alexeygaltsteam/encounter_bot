@@ -19,7 +19,7 @@ class BaseDAO:
         result = await self.session.execute(stmt)
         return result.scalars().first()
 
-    async def get_all(self, **kwargs):
+    async def get_all(self, order_by=None, **kwargs):
         stmt = select(self.__model__)
 
         filter_map = {
@@ -39,6 +39,9 @@ class BaseDAO:
             else:
                 column = getattr(self.__model__, key)
                 stmt = stmt.filter(column == value)
+
+        if order_by:
+            stmt = stmt.order_by(getattr(self.__model__, order_by))
 
         result = await self.session.execute(stmt)
         await self.session.close()

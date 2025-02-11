@@ -1,4 +1,5 @@
 from aiogram import Router, types
+from aiogram.exceptions import TelegramForbiddenError
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message, CallbackQuery
 from db.models import GameState
@@ -6,7 +7,7 @@ from db.utils import ensure_user_registered
 from filters import PrivateChatFilter
 from keyboards.constants import PRIVATE_COMMANDS, CHAT_COMMANDS, NOT_NICKNAME
 from keyboards.game_keyboards import create_main_game_keyboard, SubscribeCallbackData, create_team_finder_keyboard, \
-    GameRoleCallbackData
+    GameRoleCallbackData, SubscribeFromChannelCallbackData
 from loader import game_dao, user_dao, user_subs_dao, user_role_dao
 from messages.messages import format_game_message
 
@@ -40,6 +41,7 @@ def split_games_list(games, max_length=4096):
         game_text = (
             f"🎮 <b>{game.name}</b>\n"
             f"📅 Дата начала: {game.start_date.strftime('%d.%m.%Y %H:%M')}\n"
+            f"📅 Дата окончания: {game.end_date.strftime('%d.%m.%Y %H:%M')}\n"
             f"👥 Количество участников: {game.max_players or 'Не указано'}\n"
         )
         game_link = game.link
@@ -63,7 +65,7 @@ def split_games_list(games, max_length=4096):
 @ensure_user_registered(user_dao)
 async def upcoming_games_command(message: Message):
     all_upcoming_games = await game_dao.get_all(
-        state=GameState.UPCOMING.value, is_announcement_sent=True
+        state=GameState.UPCOMING.value, is_announcement_sent=True, order_by="start_date",
     )
 
     if not all_upcoming_games:
@@ -88,7 +90,7 @@ async def upcoming_games_command(message: Message):
 @ensure_user_registered(user_dao)
 async def active_games_command(message: Message):
     all_upcoming_games = await game_dao.get_all(
-        state=GameState.ACTIVE.value
+        state=GameState.ACTIVE.value, order_by="end_date"
     )
 
     if not all_upcoming_games:
@@ -127,7 +129,6 @@ async def handle_subscribe_callback(callback_query: CallbackQuery, callback_data
     from __main__ import bot
     game_id = callback_data.game_id
     action = callback_data.action
-
     user_id = callback_query.from_user.id
 
     message = ''
@@ -166,7 +167,7 @@ async def subs_command(message: types.Message):
     for game in games:
         header = "🔎 <b>Поиск игроков и команд!</b>"
         text = format_game_message(game, header)
-        keyboard = create_team_finder_keyboard(game.id)
+        keyboard = create_team_finder_keyboard(game.id, game.link)
 
         await message.answer(
             text,
@@ -208,3 +209,35 @@ async def handle_game_role_callback(callback_query: CallbackQuery, callback_data
         await bot.send_message(chat_id=callback_query.message.chat.id, text=message, parse_mode="HTML")
     except Exception as e:
         print(f"Ошибка при отправке сообщения в чат: {e}")
+
+
+@router.callback_query(SubscribeFromChannelCallbackData.filter())
+async def handle_subscribe_from_channel_callback(callback_query: CallbackQuery,
+                                                 callback_data: SubscribeFromChannelCallbackData):
+    from __main__ import bot
+    game_id = callback_data.game_id
+    action = callback_data.action
+    user_id = callback_query.from_user.id
+
+    if not callback_query.from_user.username:
+        await callback_query.answer(NOT_NICKNAME)
+        return
+
+    user = await user_dao.get(telegram_id=user_id)
+
+    if not user:
+        await user_dao.create(
+            telegram_id=user_id,
+            nickname=callback_query.from_user.username or f"User_{callback_query.from_user.id}"
+        )
+
+    if action == "subscribe_channel":
+        await user_subs_dao.add_user_to_subscription(game_id=game_id, user_id=user_id)
+        message_text = f"Привет! Вы подписались на игру {game_id}. Для просмотра подписок использвуйте /subs"
+        try:
+            await bot.send_message(user_id, message_text)
+            await bot.answer_callback_query(callback_query.id, text="Мы отправили вам сообщение!")
+        except TelegramForbiddenError:
+            await bot.answer_callback_query(callback_query.id, text="Мы не смогли отправиль личное сообщение")
+        except Exception as e:
+            print(f"Ошибка при отправке личного сообщения: {e}")
