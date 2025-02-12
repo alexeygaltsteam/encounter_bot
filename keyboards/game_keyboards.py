@@ -93,10 +93,46 @@ def create_team_finder_keyboard(game_id: int, link: str) -> InlineKeyboardMarkup
     """Создает клавиатуру с кнопками 'Найти игрока' и 'Найти команду'"""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Ссылка на игру", url=link)],
-        [InlineKeyboardButton(text="Найти игрока",
-                              callback_data=GameRoleCallbackData(game_id=game_id, action="find_player").pack())],
-        [InlineKeyboardButton(text="Найти команду",
-                              callback_data=GameRoleCallbackData(game_id=game_id, action="find_team").pack())],
-        [InlineKeyboardButton(text="❌ Отписаться",
+        [InlineKeyboardButton(text="Поиск сокомандника",
+                              callback_data=GameRoleCallbackData(game_id=game_id, action="open_team_search").pack())],
+        # [InlineKeyboardButton(text="Найти игрока",
+        #                       callback_data=GameRoleCallbackData(game_id=game_id, action="find_player").pack())],
+        # [InlineKeyboardButton(text="Найти команду",
+        #                       callback_data=GameRoleCallbackData(game_id=game_id, action="find_team").pack())],
+        [InlineKeyboardButton(text="❌ Отписаться от игры",
                               callback_data=SubscribeCallbackData(game_id=game_id, action="unsubscribe").pack())]
     ])
+
+
+# def create_team_search_menu_keyboard(game_id: int) -> InlineKeyboardMarkup:
+#     """Создает клавиатуру для поиска сокомандника"""
+#     return InlineKeyboardMarkup(inline_keyboard=[
+#         [InlineKeyboardButton(text="Найти игрока",
+#                               callback_data=GameRoleCallbackData(game_id=game_id, action="find_player").pack())],
+#         [InlineKeyboardButton(text="Найти команду",
+#                               callback_data=GameRoleCallbackData(game_id=game_id, action="find_team").pack())],
+#         [InlineKeyboardButton(text="❌ Отписаться от поиска",
+#                               callback_data=GameRoleCallbackData(game_id=game_id, action="cancel_search").pack())],
+#         [InlineKeyboardButton(text="⬅️ Назад",
+#                               callback_data=GameRoleCallbackData(game_id=game_id, action="back_to_main").pack())]
+#     ])
+
+def create_team_search_menu_keyboard(game_id: int, is_searching: bool, players_count: int,
+                                     teams_count: int) -> InlineKeyboardMarkup:
+    """Создает клавиатуру для поиска сокомандника, включая кнопку отписки только если пользователь ищет"""
+    keyboard = [
+        [InlineKeyboardButton(text=f"Найти игрока ({players_count})",
+                              callback_data=GameRoleCallbackData(game_id=game_id, action="find_player").pack())],
+        [InlineKeyboardButton(text=f"Найти команду ({teams_count})",
+                              callback_data=GameRoleCallbackData(game_id=game_id, action="find_team").pack())],
+        [InlineKeyboardButton(text="⬅️ Назад",
+                              callback_data=GameRoleCallbackData(game_id=game_id, action="back_to_main").pack())]
+    ]
+
+    # Если пользователь ищет, добавляем кнопку "Отписаться от поиска"
+    if is_searching:
+        keyboard.insert(2, [InlineKeyboardButton(text="❌ Отписаться от поиска",
+                                                 callback_data=GameRoleCallbackData(game_id=game_id,
+                                                                                    action="cancel_search").pack())])
+
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)

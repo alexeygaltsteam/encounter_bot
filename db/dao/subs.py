@@ -96,3 +96,30 @@ class UserGameRoleDAO(BaseDAO):
                 .filter(UserGameRole.game_id == game_id, UserGameRole.role == opposite_role)
             )
             return [row[0] for row in result.fetchall()]
+
+    async def get_opposite_role_users_count(self, game_id: int, opposite_role: str):
+        """Возвращает количество пользователей с противоположной ролью"""
+        async with self.session as session:
+            result = await session.execute(
+                select(User.id)
+                .join(UserGameRole, User.id == UserGameRole.user_id)
+                .filter(UserGameRole.game_id == game_id, UserGameRole.role == opposite_role)
+            )
+
+            users = result.scalars().all()
+            return len(users)
+
+    async def is_user_searching(self, user_id: int, game_id: int) -> bool:
+        """Проверяет, ищет ли пользователь игрока или команду в игре"""
+        existing_user = await self.session.execute(
+            select(User).filter_by(telegram_id=user_id)
+        )
+        user = existing_user.scalars().first()
+
+        if not user:
+            return False
+        existing_search = await self.get(user_id=user.id, game_id=game_id)
+
+        if existing_search:
+            return True
+        return False

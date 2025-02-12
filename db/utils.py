@@ -1,9 +1,11 @@
 from datetime import datetime
 from db.dao import GameDateDAO
 from db.models import GameState
-from loader import db
+from loader import db, user_role_dao
 from logging_config import bot_logger
 import pytz
+from functools import wraps
+from aiogram import types
 
 game_dao = GameDateDAO(db.async_session)
 
@@ -43,11 +45,6 @@ async def update_game_states():
         bot_logger.error(f"Error during game state update: {e}")
 
 
-from functools import wraps
-from aiogram import types
-from aiogram.dispatcher.event.bases import CancelHandler
-
-
 def ensure_user_registered(user_dao):
     """ Декоратор для проверки, зарегистрирован ли пользователь. """
 
@@ -63,3 +60,14 @@ def ensure_user_registered(user_dao):
         return wrapper
 
     return decorator
+
+
+async def get_players_and_teams_count(game_id: int) -> dict:
+    """Возвращает количество доступных игроков и команд для игры."""
+    players_count = await user_role_dao.get_opposite_role_users_count(game_id, "Игрок")
+    teams_count = await user_role_dao.get_opposite_role_users_count(game_id, "Команда")
+
+    return {
+        "players": players_count,
+        "teams": teams_count
+    }

@@ -62,3 +62,4 @@ class BaseDAO:
         if instance:
             await self.session.delete(instance)
             await self.session.commit()
+

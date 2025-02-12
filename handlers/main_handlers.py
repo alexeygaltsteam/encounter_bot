@@ -3,11 +3,12 @@ from aiogram.exceptions import TelegramForbiddenError
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message, CallbackQuery
 from db.models import GameState
-from db.utils import ensure_user_registered
+from db.utils import ensure_user_registered, get_players_and_teams_count
 from filters import PrivateChatFilter
 from keyboards.constants import PRIVATE_COMMANDS, CHAT_COMMANDS, NOT_NICKNAME
 from keyboards.game_keyboards import create_main_game_keyboard, SubscribeCallbackData, create_team_finder_keyboard, \
-    GameRoleCallbackData, SubscribeFromChannelCallbackData, create_dynamic_game_keyboard
+    GameRoleCallbackData, SubscribeFromChannelCallbackData, create_dynamic_game_keyboard, \
+    create_team_search_menu_keyboard
 from loader import game_dao, user_dao, user_subs_dao, user_role_dao
 from messages.messages import format_game_message
 
@@ -211,12 +212,63 @@ async def subs_command(message: types.Message):
         )
 
 
+@router.callback_query(GameRoleCallbackData.filter(F.action == "open_team_search"))
+async def open_team_search(callback_query: CallbackQuery, callback_data: GameRoleCallbackData):
+    """Обрабатывает нажатие на кнопку 'Поиск сокомандника' и меняет клавиатуру"""
+    game_id = callback_data.game_id
+    user_id = callback_query.from_user.id
+
+    counts = await get_players_and_teams_count(game_id)
+    players_count = counts["players"]
+    teams_count = counts["teams"]
+
+    is_searching = await user_role_dao.is_user_searching(user_id=user_id, game_id=game_id)
+    print(is_searching)
+    new_keyboard = create_team_search_menu_keyboard(game_id, is_searching=is_searching, players_count=players_count,
+                                                    teams_count=teams_count)
+
+    await callback_query.message.edit_reply_markup(reply_markup=new_keyboard)
+
+
+@router.callback_query(GameRoleCallbackData.filter(F.action == "back_to_main"))
+async def back_to_main(callback_query: CallbackQuery, callback_data: GameRoleCallbackData):
+    """Обрабатывает кнопку 'Назад' и возвращает основную клавиатуру"""
+    game_id = callback_data.game_id
+    game = await game_dao.get(id=game_id)
+    new_keyboard = create_team_finder_keyboard(game_id, game.link)
+
+    await callback_query.message.edit_reply_markup(reply_markup=new_keyboard)
+
+
 @router.callback_query(GameRoleCallbackData.filter())
 async def handle_game_role_callback(callback_query: CallbackQuery, callback_data: GameRoleCallbackData):
     from __main__ import bot
     game_id = callback_data.game_id
     action = callback_data.action
     user_id = callback_query.from_user.id
+
+    if action == "cancel_search":
+        user = await user_dao.get(telegram_id=user_id)
+        user_role = await user_role_dao.get(user_id=user.id, game_id=game_id)
+        if user_role:
+            await user_role_dao.delete(user_id=user.id, game_id=game_id)
+
+        response_text = "Вы успешно отписались от поиска."
+
+        counts = await get_players_and_teams_count(game_id)
+        players_count = counts["players"]
+        teams_count = counts["teams"]
+        new_keyboard = create_team_search_menu_keyboard(game_id, is_searching=False, players_count=players_count,
+                                                        teams_count=teams_count)
+
+        try:
+            await bot.answer_callback_query(callback_query.id, text=response_text)
+            await bot.edit_message_reply_markup(chat_id=callback_query.message.chat.id,
+                                                message_id=callback_query.message.message_id,
+                                                reply_markup=new_keyboard)
+        except Exception as e:
+            print(f"Ошибка при отправке сообщения в чат: {e}")
+        return
 
     role = "Команда" if action == "find_player" else "Игрок"
     await user_role_dao.add_user_role(user_id=user_id, game_id=game_id, role=role)
@@ -238,9 +290,19 @@ async def handle_game_role_callback(callback_query: CallbackQuery, callback_data
     else:
         response_text = "Теперь вы ищете игроков."
 
+    counts = await get_players_and_teams_count(game_id)
+    players_count = counts["players"]
+    teams_count = counts["teams"]
+
+    new_keyboard = create_team_search_menu_keyboard(game_id, is_searching=True, players_count=players_count,
+                                                    teams_count=teams_count)
+
     try:
         await bot.answer_callback_query(callback_query.id, text=response_text)
         await bot.send_message(chat_id=callback_query.message.chat.id, text=message, parse_mode="HTML")
+        await bot.edit_message_reply_markup(chat_id=callback_query.message.chat.id,
+                                            message_id=callback_query.message.message_id,
+                                            reply_markup=new_keyboard)
     except Exception as e:
         print(f"Ошибка при отправке сообщения в чат: {e}")
 
