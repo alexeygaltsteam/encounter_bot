@@ -29,7 +29,8 @@ def default_game_keyboard(link: str, game_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Ссылка на игру", url=link)],
         [InlineKeyboardButton(text="Хочу играть!",
-                              callback_data=SubscribeFromChannelCallbackData(game_id=game_id, action="subscribe_channel").pack())]
+                              callback_data=SubscribeFromChannelCallbackData(game_id=game_id,
+                                                                             action="subscribe_channel").pack())]
     ])
 
 
@@ -40,6 +41,21 @@ def create_main_game_keyboard(link: str, game_id: int) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="Хочу играть!",
                               callback_data=SubscribeCallbackData(game_id=game_id, action="subscribe").pack())],
     ])
+
+
+def create_dynamic_game_keyboard(link: str, game_id: int, is_subscribed: bool) -> InlineKeyboardMarkup:
+    """Создает клавиатуру с кнопками, учитывая подписку"""
+    if is_subscribed:
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="Ссылка на игру", url=link)],
+            [InlineKeyboardButton(text="В подписках ✅", callback_data="show_subscriptions")]
+        ])
+    else:
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="Ссылка на игру", url=link)],
+            [InlineKeyboardButton(text="Хочу играть!",
+                                  callback_data=SubscribeCallbackData(game_id=game_id, action="subscribe").pack())]
+        ])
 
 
 async def set_main_menu(bot: Bot) -> None:
@@ -73,7 +89,7 @@ def create_pagination_keyboard(page: int, total_pages: int) -> InlineKeyboardMar
     return keyboard
 
 
-def create_team_finder_keyboard(game_id: int, link : str) -> InlineKeyboardMarkup:
+def create_team_finder_keyboard(game_id: int, link: str) -> InlineKeyboardMarkup:
     """Создает клавиатуру с кнопками 'Найти игрока' и 'Найти команду'"""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Ссылка на игру", url=link)],

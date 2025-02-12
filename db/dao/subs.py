@@ -43,6 +43,19 @@ class UserGameSubscriptionDAO(BaseDAO):
         await self.delete(user_id=user.id, game_id=game_id)
         return f"Вы успешно отписались от игры {game_id}."
 
+    async def is_user_subscribed(self, user_id: int, game_id: int) -> bool:
+        """Проверяет, подписан ли пользователь на игру"""
+        existing_user = await self.session.execute(
+            select(User).filter_by(telegram_id=user_id)
+        )
+        user = existing_user.scalars().first()
+
+        if not user:
+            return False
+
+        existing_subscription = await self.get(user_id=user.id, game_id=game_id)
+        return existing_subscription is not None
+
 
 class UserGameRoleDAO(BaseDAO):
     __model__ = UserGameRole

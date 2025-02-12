@@ -1,4 +1,4 @@
-from aiogram import Router, types
+from aiogram import Router, types, F
 from aiogram.exceptions import TelegramForbiddenError
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message, CallbackQuery
@@ -7,7 +7,7 @@ from db.utils import ensure_user_registered
 from filters import PrivateChatFilter
 from keyboards.constants import PRIVATE_COMMANDS, CHAT_COMMANDS, NOT_NICKNAME
 from keyboards.game_keyboards import create_main_game_keyboard, SubscribeCallbackData, create_team_finder_keyboard, \
-    GameRoleCallbackData, SubscribeFromChannelCallbackData
+    GameRoleCallbackData, SubscribeFromChannelCallbackData, create_dynamic_game_keyboard
 from loader import game_dao, user_dao, user_subs_dao, user_role_dao
 from messages.messages import format_game_message
 
@@ -41,7 +41,7 @@ def split_games_list(games, max_length=4096):
         game_text = (
             f"🎮 <b>{game.name}</b>\n"
             f"📅 Дата начала: {game.start_date.strftime('%d.%m.%Y %H:%M')}\n"
-            f"📅 Дата окончания: {game.end_date.strftime('%d.%m.%Y %H:%M')}\n"
+            f"📅 Дата окончания: {game.end_date.strftime('%d.%m.%Y %H:%M') if game.end_date else 'Отсутствует'}\n"
             f"👥 Количество участников: {game.max_players or 'Не указано'}\n"
         )
         game_link = game.link
@@ -64,6 +64,8 @@ def split_games_list(games, max_length=4096):
 @router.message(Command(commands='upcoming'))
 @ensure_user_registered(user_dao)
 async def upcoming_games_command(message: Message):
+    user_id = message.from_user.id
+
     all_upcoming_games = await game_dao.get_all(
         state=GameState.UPCOMING.value, is_announcement_sent=True, order_by="start_date",
     )
@@ -76,7 +78,16 @@ async def upcoming_games_command(message: Message):
 
     for part in game_parts:
         for game_text, game_link, game_id in part:
-            keyboard = create_main_game_keyboard(game_link, game_id)
+            # keyboard = create_main_game_keyboard(game_link, game_id)
+            #
+            # await message.answer(
+            #     game_text,
+            #     disable_web_page_preview=True,
+            #     parse_mode="HTML",
+            #     reply_markup=keyboard
+            # )
+            is_subscribed = await user_subs_dao.is_user_subscribed(user_id=user_id, game_id=game_id)
+            keyboard = create_dynamic_game_keyboard(game_link, game_id, is_subscribed)
 
             await message.answer(
                 game_text,
@@ -136,21 +147,36 @@ async def handle_subscribe_callback(callback_query: CallbackQuery, callback_data
     if action == "subscribe":
         message = await user_subs_dao.add_user_to_subscription(game_id=game_id, user_id=user_id)
 
+        is_subscribed = True
+        new_keyboard = create_dynamic_game_keyboard(
+            link=callback_query.message.reply_markup.inline_keyboard[0][0].url,
+            game_id=game_id,
+            is_subscribed=is_subscribed
+        )
+
+        try:
+            await bot.edit_message_reply_markup(
+                chat_id=callback_query.message.chat.id,
+                message_id=callback_query.message.message_id,
+                reply_markup=new_keyboard
+            )
+        except Exception as e:
+            print(f"Ошибка при обновлении кнопки: {e}")
+
     if action == "unsubscribe":
         message = await user_subs_dao.remove_user_from_subscription(user_id=user_id, game_id=game_id)
 
+        # try:
+        #     await bot.answer_callback_query(callback_query.id, text=f"Вы успешно отписались от игры {game_id}!")
+        # except Exception as e:
+        #     print(f"Ошибка при отправке сплывающего сообщения: {e}")
+        message_text = f"Вы отписались от игры {game_id}. "
         try:
-            await bot.answer_callback_query(callback_query.id, text=f"Вы успешно отписались от игры {game_id}!")
-        except Exception as e:
-            print(f"Ошибка при отправке сплывающего сообщения: {e}")
-
-        try:
+            await bot.send_message(user_id, message_text)
             await bot.delete_message(chat_id=callback_query.message.chat.id,
                                      message_id=callback_query.message.message_id)
         except Exception as e:
             print(f"Ошибка при удалении сообщения: {e}")
-
-
 
     try:
         # await bot.a(user_id, message)
@@ -249,3 +275,9 @@ async def handle_subscribe_from_channel_callback(callback_query: CallbackQuery,
             await bot.answer_callback_query(callback_query.id, text="Мы не смогли отправиль личное сообщение")
         except Exception as e:
             print(f"Ошибка при отправке личного сообщения: {e}")
+
+
+@router.callback_query(F.data == "show_subscriptions")
+async def show_user_subscriptions(callback_query: CallbackQuery):
+    await callback_query.message.answer("📋 Ваши подписки: /subs")
+    await callback_query.answer()
