@@ -62,7 +62,7 @@ def split_games_list(games, max_length=4096):
     return parts
 
 
-@router.message(Command(commands='upcoming'))
+@router.message(Command(commands='upcoming'), PrivateChatFilter())
 @ensure_user_registered(user_dao)
 async def upcoming_games_command(message: Message):
     user_id = message.from_user.id
@@ -98,7 +98,7 @@ async def upcoming_games_command(message: Message):
             )
 
 
-@router.message(Command(commands='active'))
+@router.message(Command(commands='active'), PrivateChatFilter())
 @ensure_user_registered(user_dao)
 async def active_games_command(message: Message):
     all_upcoming_games = await game_dao.get_all(
@@ -190,7 +190,7 @@ async def handle_subscribe_callback(callback_query: CallbackQuery, callback_data
         print(f"Ошибка при отправке личного сообщения: {e}")
 
 
-@router.message(Command(commands='subs'))
+@router.message(Command(commands='subs'), PrivateChatFilter())
 @ensure_user_registered(user_dao)
 async def subs_command(message: types.Message):
     games = await user_dao.get_user_subscribed_games(telegram_id=message.from_user.id)

@@ -1,8 +1,9 @@
 from aiogram import Bot
 from aiogram.filters.callback_data import CallbackData
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand, BotCommandScopeAllPrivateChats, \
+    BotCommandScopeDefault
 # from handlers.callbacks import SubscribeCallbackData
-from keyboards.constants import MAIN_COMMANDS
+from keyboards.constants import MAIN_COMMANDS, CHAT_COMMANDS
 
 
 class SubscribeCallbackData(CallbackData, prefix="subscribe"):
@@ -63,7 +64,14 @@ async def set_main_menu(bot: Bot) -> None:
         command=command,
         description=description
     ) for command, description in MAIN_COMMANDS.items()]
-    await bot.set_my_commands(main_menu_commands)
+    channel_menu_commands = [BotCommand(
+        command=command,
+        description=description
+    ) for command, description in CHAT_COMMANDS.items()]
+
+    # await bot.set_my_commands(main_menu_commands)
+    await bot.set_my_commands(main_menu_commands, scope=BotCommandScopeAllPrivateChats())
+    await bot.set_my_commands(channel_menu_commands, scope=BotCommandScopeDefault())
 
 
 def create_pagination_keyboard(page: int, total_pages: int) -> InlineKeyboardMarkup:
