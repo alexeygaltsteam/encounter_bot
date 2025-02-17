@@ -169,6 +169,7 @@ no_category_records_*.csv
 # Игнорируем папку logs
 logs/
 images/
+!images/DEFAULT.jpg
 
 # Ignore SQLite database files
 *.db

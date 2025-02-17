@@ -1,7 +1,10 @@
+from pathlib import Path
 from typing import Optional
 from datetime import datetime, timedelta
 import pytz
 from aiogram.enums import ParseMode
+from aiogram.types import FSInputFile
+
 from db.models import GameDate
 from keyboards.constants import GAME_ANNOUNCEMENT, GAME_START, GAME_DATE_CHANGE
 from keyboards.game_keyboards import default_game_keyboard
@@ -52,7 +55,21 @@ async def send_game_message(bot, game, message_type: str):
     keyboard = default_game_keyboard(game.link, game.id)
 
     try:
-        await bot.send_message(settings.CHAT_ID, message, parse_mode=ParseMode.HTML, reply_markup=keyboard)
+        # await bot.send_message(settings.CHAT_ID, message, parse_mode=ParseMode.HTML, reply_markup=keyboard)
+        file_name = game.image.split("/")[-1] if game.image else "DEFAULT.jpg"
+        photo_path = Path(f"images/{file_name}").resolve()
+
+        if not photo_path.exists() or not photo_path.is_file():
+            bot_logger.info(f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию.")
+            photo_path = Path("images/DEFAULT.jpg").resolve()
+
+        await bot.send_photo(
+            chat_id=settings.CHAT_ID,
+            photo=FSInputFile(str(photo_path)),
+            caption=message,
+            parse_mode=ParseMode.HTML,
+            reply_markup=keyboard
+        )
         bot_logger.info(f"Сообщение {message_type} для игры {game.id} успешно отправлено.")
     except Exception as e:
         bot_logger.error(f"Ошибка при отправке сообщения {message_type} для игры {game.id}: {e}")
@@ -116,7 +133,21 @@ async def send_game_message_date_change(
     keyboard = default_game_keyboard(game.link, game.id)
 
     try:
-        await bot.send_message(settings.CHAT_ID, message, parse_mode=ParseMode.HTML, reply_markup=keyboard)
+        # await bot.send_message(settings.CHAT_ID, message, parse_mode=ParseMode.HTML, reply_markup=keyboard)
+        file_name = game.image.split("/")[-1] if game.image else "DEFAULT.jpg"
+        photo_path = Path(f"images/{file_name}").resolve()
+
+        if not photo_path.exists() or not photo_path.is_file():
+            bot_logger.info(f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию.")
+            photo_path = Path("images/DEFAULT.jpg").resolve()
+
+        await bot.send_photo(
+            chat_id=settings.CHAT_ID,
+            photo=FSInputFile(str(photo_path)),
+            caption=message,
+            parse_mode=ParseMode.HTML,
+            reply_markup=keyboard
+        )
         bot_logger.info(f"Сообщение об изменении дат для игры {game.id} успешно отправлено.")
     except Exception as e:
         bot_logger.error(f"Ошибка при отправке сообщения об изменении дат для игры {game.id}: {e}")
