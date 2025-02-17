@@ -35,9 +35,19 @@ class GameDateDAO(BaseDAO):
                     if key == "image" and isinstance(value, str) and value.startswith("http"):
                         current_image = getattr(existing_instance, key, None)
                         if current_image != value:
-                            await download_image(value)
-                            setattr(existing_instance, key, value)
-                            parser_logger.info(f"Изображение изменено для : {kwargs.get('id')}")
+                            download_result = await download_image(value)
+
+                            if download_result is not None:
+                                setattr(existing_instance, key, value)
+                                parser_logger.info(f"Изображение изменено для : {kwargs.get('id')}")
+                            else:
+                                setattr(existing_instance, key, None)
+                                parser_logger.info(
+                                    f"❌ Изображение не было загружено, ставим None для : {kwargs.get('id')}")
+
+                            # await download_image(value)
+                            # setattr(existing_instance, key, value)
+                            # parser_logger.info(f"Изображение изменено для : {kwargs.get('id')}")
                     else:
                         setattr(existing_instance, key, value)
 
@@ -80,7 +90,13 @@ class GameDateDAO(BaseDAO):
             instance = self.__model__(**kwargs)
             self.session.add(instance)
             parser_logger.info(f"Создан новый объект: {kwargs.get('id')}")
-            await download_image(image_url=instance.image)
+            # await download_image(image_url=instance.image)
+            download_result = await download_image(image_url=instance.image)
+            if download_result is None:
+                parser_logger.info(f"❌ Не удалось загрузить изображение для {kwargs.get('id')}. Устанавливаем None.")
+                instance.image = None
+            else:
+                instance.image = download_result
             await self.session.commit()
 
         await self.session.close()

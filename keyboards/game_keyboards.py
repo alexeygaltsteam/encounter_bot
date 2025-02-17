@@ -29,7 +29,7 @@ class PaginationCallbackData(CallbackData, prefix="pagination"):
 def default_game_keyboard(link: str, game_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Ссылка на игру", url=link)],
-        [InlineKeyboardButton(text="Хочу играть!",
+        [InlineKeyboardButton(text="Подписаться на игру",
                               callback_data=SubscribeFromChannelCallbackData(game_id=game_id,
                                                                              action="subscribe_channel").pack())]
     ])

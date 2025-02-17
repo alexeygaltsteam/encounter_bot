@@ -6,7 +6,7 @@ from aiogram.types import Message, CallbackQuery, FSInputFile
 from db.models import GameState
 from db.utils import ensure_user_registered, get_players_and_teams_count
 from filters import PrivateChatFilter
-from keyboards.constants import PRIVATE_COMMANDS, CHAT_COMMANDS, NOT_NICKNAME
+from keyboards.constants import PRIVATE_COMMANDS, CHAT_COMMANDS, NOT_NICKNAME, START_MESSAGE
 from keyboards.game_keyboards import create_main_game_keyboard, SubscribeCallbackData, create_team_finder_keyboard, \
     GameRoleCallbackData, SubscribeFromChannelCallbackData, create_dynamic_game_keyboard, \
     create_team_search_menu_keyboard
@@ -31,7 +31,7 @@ async def cmd_start(message: types.Message):
             nickname=message.from_user.username or f"User_{message.from_user.id}"
         )
 
-    await message.answer(f'Привет {user.nickname}! 👋 Я Enc bot')
+    await message.answer(START_MESSAGE)
 
 
 def split_games_list(games, max_length=4096):
@@ -165,13 +165,13 @@ async def active_games_command(message: Message):
 @ensure_user_registered(user_dao)
 async def help_command(message: types.Message):
     if message.chat.type == 'private':
-        help_text = "\n".join(f"{command}: {description}" for command, description in PRIVATE_COMMANDS.items())
+        help_text = "\n".join(f"{command} {description}" for command, description in PRIVATE_COMMANDS.items())
     elif message.chat.type in ['group', 'supergroup']:
-        help_text = "\n".join(f"{command}: {description}" for command, description in CHAT_COMMANDS.items())
+        help_text = "\n".join(f"{command} {description}" for command, description in CHAT_COMMANDS.items())
     else:
         help_text = "Неизвестный тип чата."
 
-    await message.answer(help_text)
+    await message.answer(f"<b>📜 Доступные команды:</b>\n\n{help_text}", parse_mode="HTML")
 
 
 @router.callback_query(SubscribeCallbackData.filter())
@@ -209,7 +209,8 @@ async def handle_subscribe_callback(callback_query: CallbackQuery, callback_data
         #     await bot.answer_callback_query(callback_query.id, text=f"Вы успешно отписались от игры {game_id}!")
         # except Exception as e:
         #     print(f"Ошибка при отправке сплывающего сообщения: {e}")
-        message_text = f"Вы отписались от игры {game_id}. "
+        game = await game_dao.get(id=game_id)
+        message_text = f"<b>Вы отписались от игры {game.name}.</b>"
         try:
             await bot.send_message(user_id, message_text)
             await bot.delete_message(chat_id=callback_query.message.chat.id,
@@ -297,6 +298,7 @@ async def handle_game_role_callback(callback_query: CallbackQuery, callback_data
     game_id = callback_data.game_id
     action = callback_data.action
     user_id = callback_query.from_user.id
+    game = await game_dao.get(id=game_id)
 
     if action == "cancel_search":
         user = await user_dao.get(telegram_id=user_id)
@@ -330,11 +332,11 @@ async def handle_game_role_callback(callback_query: CallbackQuery, callback_data
     user_list = "\n".join([f"@{nickname}" for nickname in matched_users])
     if matched_users:
         if role == "Команда":
-            message += f"👥 Доступные игроки:\n{user_list}"
+            message += f"👥 <b>Доступные игроки</b>:\n{user_list}"
         else:
-            message += f"👑 Доступные капитаны команды:\n{user_list}"
+            message += f"👑 <b>Доступные капитаны</b>:\n{user_list}"
     else:
-        message += f"😔 Пока нет доступных."
+        message += f"😔 Ты первый!\n Пока нет доступных сокомандников к игре \n«<b>{game.name}</b>»"
 
     if role == "Игрок":
         response_text = "Теперь вы ищете команду."

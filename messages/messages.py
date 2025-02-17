@@ -28,10 +28,26 @@ def format_game_message(game: GameDate, header: str) -> str:
 <b>🎮 Название:</b> {game.name}
 <b>🕒 Начало:</b> {game.start_date.strftime('%d.%m.%Y %H:%M:%S')}
 <b>🕒 Конец:</b> {game.end_date.strftime('%d.%m.%Y %H:%M:%S') if game.end_date else "Отсутствует"}
-<b>👤 Автор:</b> {game.author}
-<b>💰 Цена:</b> {game.price} en usd
-<b>🎭 Тип игры:</b> {game.game_type}
-<b>👥 Количество игроков:</b> {game.max_players}
+<b>📝 Автор(ы):</b> {game.author}
+<b>💰 Взнос:</b> {game.price}
+<b>🎭 Тип игры:</b> {'Одиночная' if game.game_type == 'single' else 'Командная'}
+<b>👥 Ограничение игроков:</b> {game.max_players}
+"""
+
+def format_annonsed_game_message(game: GameDate, header: str) -> str:
+    """Формирует текст сообщения с информацией об игре"""
+    return f"""{header}
+<b>🎮 Название:</b> {game.name}
+<b>📅 Дата начала:</b> {game.start_date.strftime('%d.%m.%Y %H:%M:%S')}
+<b>📆 Дата окончания:</b> {game.end_date.strftime('%d.%m.%Y %H:%M:%S') if game.end_date else "Отсутствует"}
+<b>👥 Ограничение игроков:</b> {game.max_players}
+"""
+
+def format_game_message_with_change(game: GameDate, header: str) -> str:
+    """Формирует текст сообщения с информацией об игре"""
+    return f"""{header}
+<b>🎮 Название:</b> {game.name}
+<b>📝 Автор(ы):</b> {game.author}
 """
 
 
@@ -51,7 +67,7 @@ async def send_game_message(bot, game, message_type: str):
         bot_logger.error(f"Неизвестный тип сообщения: {message_type}")
         return
 
-    message = format_game_message(game, header)
+    message = format_annonsed_game_message(game, header)
     keyboard = default_game_keyboard(game.link, game.id)
 
     try:
@@ -106,29 +122,50 @@ async def send_game_message_date_change(
     :param old_start_date: старая дата начала игры.
     """
     header = GAME_DATE_CHANGE
-    message = format_game_message(game, header)
+    message = format_game_message_with_change(game, header)
 
+    # if message_type == "reschedule_start":
+    #     message += f"""
+    #         ⚠️ Внимание! Дата начала игры изменена.
+    #         <b>Предыдущая дата начала:</b> {old_start_date.strftime('%d.%m.%Y %H:%M:%S')}
+    #         <b>Новое начало:</b> {new_start_date.strftime('%d.%m.%Y %H:%M:%S')}
+    #         """
+    # elif message_type == "reschedule_end":
+    #     message += f"""
+    #         ⚠️ Внимание! Дата окончания игры изменена.
+    #         <b>Предыдущая дата конца:</b> {old_end_date.strftime('%d.%m.%Y %H:%M:%S')}
+    #         <b>Новый конец:</b> {new_end_date.strftime('%d.%m.%Y %H:%M:%S')}
+    #         """
+    # elif message_type == "both_reschedule":
+    #     message += f"""
+    #         ⚠️ Внимание! Изменены даты начала и окончания игры.
+    #         <b>Предыдущая дата начала:</b> {old_start_date.strftime('%d.%m.%Y %H:%M:%S')}
+    #         <b>Предыдущая дата конца:</b> {old_end_date.strftime('%d.%m.%Y %H:%M:%S')}
+    #
+    #         <b>Новое начало:</b> {new_start_date.strftime('%d.%m.%Y %H:%M:%S')}
+    #         <b>Новый конец:</b> {new_end_date.strftime('%d.%m.%Y %H:%M:%S')}
+    #         """
     if message_type == "reschedule_start":
         message += f"""
-            ⚠️ Внимание! Дата начала игры изменена.
-            <b>Предыдущая дата начала:</b> {old_start_date.strftime('%d.%m.%Y %H:%M:%S')}
-            <b>Новое начало:</b> {new_start_date.strftime('%d.%m.%Y %H:%M:%S')}
-            """
+            <i>⚠️ Внимание! Дата начала игры изменена.</i>
+            ├ <b>Предыдущая дата начала:</b> {old_start_date.strftime('%d.%m.%Y %H:%M:%S')}
+            └ 🟢 <b>Новое начало:</b> {new_start_date.strftime('%d.%m.%Y %H:%M:%S')}
+        """
     elif message_type == "reschedule_end":
         message += f"""
-            ⚠️ Внимание! Дата окончания игры изменена.
-            <b>Предыдущая дата конца:</b> {old_end_date.strftime('%d.%m.%Y %H:%M:%S')}
-            <b>Новый конец:</b> {new_end_date.strftime('%d.%m.%Y %H:%M:%S')}
-            """
+            <i>⚠️ Внимание! Дата окончания игры изменена.</i>
+            ├ <b>Предыдущая дата конца:</b> {old_end_date.strftime('%d.%m.%Y %H:%M:%S')}
+            └ 🟢 <b>Новый конец:</b> {new_end_date.strftime('%d.%m.%Y %H:%M:%S')}
+        """
     elif message_type == "both_reschedule":
         message += f"""
-            ⚠️ Внимание! Изменены даты начала и окончания игры.
-            <b>Предыдущая дата начала:</b> {old_start_date.strftime('%d.%m.%Y %H:%M:%S')}
-            <b>Предыдущая дата конца:</b> {old_end_date.strftime('%d.%m.%Y %H:%M:%S')}
-            
-            <b>Новое начало:</b> {new_start_date.strftime('%d.%m.%Y %H:%M:%S')}
-            <b>Новый конец:</b> {new_end_date.strftime('%d.%m.%Y %H:%M:%S')}
-            """
+            <i>⚠️ Внимание! Изменены даты начала и окончания игры.</i>
+            ├ <b>Предыдущая дата начала:</b> {old_start_date.strftime('%d.%m.%Y %H:%M:%S')}
+            ├ <b>Предыдущая дата конца:</b> {old_end_date.strftime('%d.%m.%Y %H:%M:%S')}
+
+            └ 🟢 <b>Новое начало:</b> {new_start_date.strftime('%d.%m.%Y %H:%M:%S')}
+            └ 🟢 <b>Новый конец:</b> {new_end_date.strftime('%d.%m.%Y %H:%M:%S')}
+        """
 
     keyboard = default_game_keyboard(game.link, game.id)
 
