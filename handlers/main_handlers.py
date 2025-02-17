@@ -141,12 +141,12 @@ async def active_games_command(message: Message):
         for game_text, game_link, game_id, image_url in part:
             keyboard = create_main_game_keyboard(game_link, game_id)
 
-            await message.answer(
-                game_text,
-                disable_web_page_preview=True,
-                parse_mode="HTML",
-                reply_markup=keyboard
-            )
+            # await message.answer(
+            #     game_text,
+            #     disable_web_page_preview=True,
+            #     parse_mode="HTML",
+            #     reply_markup=keyboard
+            # )
             file_name = image_url.split("/")[-1] if image_url else "DEFAULT.jpg"
             photo_path = Path(f"images/{file_name}").resolve()
             if not photo_path.exists() or not photo_path.is_file():
