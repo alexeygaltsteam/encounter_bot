@@ -9,12 +9,10 @@ from .schemas import GameDate, AdditionalData
 from .utils import extract_limit
 from logging_config import parser_logger
 
-
 GAMES_URLS = [
     ("https://kovrov.en.cx/GameCalendar.aspx?status=Coming&type=Team&zone=Virtual", "team"),
     ("https://kovrov.en.cx/GameCalendar.aspx?status=Coming&type=Single&zone=Virtual", "single")
 ]
-
 
 DEFAULT_HEADERS = {
     "User-Agent": "Mozilla/5.0",
@@ -100,6 +98,20 @@ async def parse_additional_game_info(html: Optional[str]) -> AdditionalData:
 
     soup = BeautifulSoup(html, "html.parser")
 
+    author_blocks = soup.find_all("span", id="lblFromAuthor")
+
+    image = None
+
+    for block in author_blocks:
+        next_tag = block.find_next()
+        while next_tag:
+            if next_tag.name == "img":
+                image = next_tag["src"]
+                break
+            next_tag = next_tag.find_next()
+
+    additional_data.image = image
+
     span_max_players = soup.find('span', id='spanMaxTeamPlayers')
     if span_max_players:
         additional_data.max_players = span_max_players.get_text(strip=True)
@@ -160,6 +172,7 @@ async def gather_additional_game_data(session: aiohttp.ClientSession, game_data:
     for game, additional_data in zip(game_data, additional_data_results):
         game.max_players = extract_limit(additional_data.max_players)
         game.update_end_date(additional_data.end_date)
+        game.image = additional_data.image
 
 
 async def run_parsing() -> None:
@@ -193,6 +206,8 @@ async def run_parsing() -> None:
         await asyncio.sleep(10)
         for game in all_game_data:
             await game_dao.create(**game.model_dump())
+
+        parser_logger.info(f"Парсер завершил работу.")
 
 
 if __name__ == "__main__":

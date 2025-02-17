@@ -38,6 +38,7 @@ class GameDate(BaseModel):
     link: Optional[str] = None
     game_type: str
     max_players: Optional[int] = None
+    image: Optional[str] = None
 
     @field_validator("start_date", mode="before")
     def parse_start_date(cls, value):
@@ -83,3 +84,4 @@ class GameDate(BaseModel):
 class AdditionalData(BaseModel):
     end_date: str = EMPTY_FIELD
     max_players: str = EMPTY_FIELD
+    image: Optional[str] = None

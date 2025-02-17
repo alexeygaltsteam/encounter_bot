@@ -1,7 +1,8 @@
 from aiogram import Router, types, F
+from pathlib import Path
 from aiogram.exceptions import TelegramForbiddenError
 from aiogram.filters import Command, CommandStart
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, FSInputFile
 from db.models import GameState
 from db.utils import ensure_user_registered, get_players_and_teams_count
 from filters import PrivateChatFilter
@@ -10,6 +11,7 @@ from keyboards.game_keyboards import create_main_game_keyboard, SubscribeCallbac
     GameRoleCallbackData, SubscribeFromChannelCallbackData, create_dynamic_game_keyboard, \
     create_team_search_menu_keyboard
 from loader import game_dao, user_dao, user_subs_dao, user_role_dao
+from logging_config import bot_logger
 from messages.messages import format_game_message
 
 router = Router()
@@ -47,13 +49,14 @@ def split_games_list(games, max_length=4096):
         )
         game_link = game.link
         game_id = game.id
+        image_url = game.image
 
         if current_length + len(game_text) > max_length:
             parts.append(current_part)
             current_part = []
             current_length = 0
 
-        current_part.append((game_text, game_link, game_id))
+        current_part.append((game_text, game_link, game_id, image_url))
         current_length += len(game_text)
 
     if current_part:
@@ -78,7 +81,7 @@ async def upcoming_games_command(message: Message):
     game_parts = split_games_list(all_upcoming_games)
 
     for part in game_parts:
-        for game_text, game_link, game_id in part:
+        for game_text, game_link, game_id, image_url in part:
             # keyboard = create_main_game_keyboard(game_link, game_id)
             #
             # await message.answer(
@@ -90,9 +93,32 @@ async def upcoming_games_command(message: Message):
             is_subscribed = await user_subs_dao.is_user_subscribed(user_id=user_id, game_id=game_id)
             keyboard = create_dynamic_game_keyboard(game_link, game_id, is_subscribed)
 
-            await message.answer(
-                game_text,
-                disable_web_page_preview=True,
+            # await message.answer(
+            #     game_text,
+            #     disable_web_page_preview=True,
+            #     parse_mode="HTML",
+            #     reply_markup=keyboard
+            # )
+            # if image_url:
+            #     file_name = image_url.split("/")[-1]
+            #     photo_path = Path(f"images/{file_name}").resolve()
+            # else:
+            #     photo_path = Path(f"images/DEFAULT.jpg").resolve()
+            # await message.answer_photo(
+            #     photo=FSInputFile(photo_path),
+            #     caption=game_text,
+            #     parse_mode="HTML",
+            #     reply_markup=keyboard
+            # )
+            file_name = image_url.split("/")[-1] if image_url else "DEFAULT.jpg"
+            photo_path = Path(f"images/{file_name}").resolve()
+            if not photo_path.exists() or not photo_path.is_file():
+                bot_logger.info(f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию.")
+                photo_path = Path("images/DEFAULT.jpg").resolve()
+
+            await message.answer_photo(
+                photo=FSInputFile(str(photo_path)),
+                caption=game_text,
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -112,12 +138,24 @@ async def active_games_command(message: Message):
     game_parts = split_games_list(all_upcoming_games)
 
     for part in game_parts:
-        for game_text, game_link, game_id in part:
+        for game_text, game_link, game_id, image_url in part:
             keyboard = create_main_game_keyboard(game_link, game_id)
 
             await message.answer(
                 game_text,
                 disable_web_page_preview=True,
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
+            file_name = image_url.split("/")[-1] if image_url else "DEFAULT.jpg"
+            photo_path = Path(f"images/{file_name}").resolve()
+            if not photo_path.exists() or not photo_path.is_file():
+                bot_logger.info(f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию.")
+                photo_path = Path("images/DEFAULT.jpg").resolve()
+
+            await message.answer_photo(
+                photo=FSInputFile(str(photo_path)),
+                caption=game_text,
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -203,13 +241,27 @@ async def subs_command(message: types.Message):
         header = "🔎 <b>Поиск игроков и команд!</b>"
         text = format_game_message(game, header)
         keyboard = create_team_finder_keyboard(game.id, game.link)
+        image_url = game.image
 
-        await message.answer(
-            text,
-            disable_web_page_preview=True,
+        file_name = image_url.split("/")[-1] if image_url else "DEFAULT.jpg"
+        photo_path = Path(f"images/{file_name}").resolve()
+        if not photo_path.exists() or not photo_path.is_file():
+            bot_logger.info(f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию.")
+            photo_path = Path("images/DEFAULT.jpg").resolve()
+
+        await message.answer_photo(
+            photo=FSInputFile(str(photo_path)),
+            caption=text,
             parse_mode="HTML",
             reply_markup=keyboard
-        )
+            )
+        #
+        # await message.answer(
+        #     text,
+        #     disable_web_page_preview=True,
+        #     parse_mode="HTML",
+        #     reply_markup=keyboard
+        # )
 
 
 @router.callback_query(GameRoleCallbackData.filter(F.action == "open_team_search"))
@@ -223,7 +275,6 @@ async def open_team_search(callback_query: CallbackQuery, callback_data: GameRol
     teams_count = counts["teams"]
 
     is_searching = await user_role_dao.is_user_searching(user_id=user_id, game_id=game_id)
-    print(is_searching)
     new_keyboard = create_team_search_menu_keyboard(game_id, is_searching=is_searching, players_count=players_count,
                                                     teams_count=teams_count)
 

@@ -168,6 +168,7 @@ no_category_records_*.csv
 
 # Игнорируем папку logs
 logs/
+images/
 
 # Ignore SQLite database files
 *.db

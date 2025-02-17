@@ -155,6 +155,7 @@ class GameDate(Base):
     link = Column(String, nullable=True)
     game_type = Column(String, nullable=False)
     max_players = Column(Integer, nullable=True)
+    image = Column(String, nullable=True)
     state = Column(Integer, nullable=False, default=GameState.UPCOMING.value)
     is_announcement_sent = Column(Boolean, nullable=False, default=False, server_default=text('false'))
     is_start_message_sent = Column(Boolean, nullable=False, default=False, server_default=text('false'))

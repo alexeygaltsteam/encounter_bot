@@ -2,6 +2,7 @@ from db.dao.base import BaseDAO
 from db.models import GameDate
 from messages.messages import send_game_message_date_change
 from logging_config import parser_logger
+from parser.utils import download_image
 
 
 class GameDateDAO(BaseDAO):
@@ -31,7 +32,14 @@ class GameDateDAO(BaseDAO):
 
             for key, value in kwargs.items():
                 if hasattr(existing_instance, key) and key not in ('id', 'start_date', 'end_date'):
-                    setattr(existing_instance, key, value)
+                    if key == "image" and isinstance(value, str) and value.startswith("http"):
+                        current_image = getattr(existing_instance, key, None)
+                        if current_image != value:
+                            await download_image(value)
+                            setattr(existing_instance, key, value)
+                            parser_logger.info(f"Изображение изменено для : {kwargs.get('id')}")
+                    else:
+                        setattr(existing_instance, key, value)
 
             self.session.add(existing_instance)
             if start_date_updated or end_date_updated:
@@ -72,6 +80,7 @@ class GameDateDAO(BaseDAO):
             instance = self.__model__(**kwargs)
             self.session.add(instance)
             parser_logger.info(f"Создан новый объект: {kwargs.get('id')}")
+            await download_image(image_url=instance.image)
             await self.session.commit()
 
         await self.session.close()
