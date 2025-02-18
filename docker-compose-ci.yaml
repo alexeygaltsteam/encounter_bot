@@ -18,6 +18,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - images_data:/usr/src/app/images
     restart: unless-stopped
 
 
@@ -43,6 +45,4 @@ services:
 
 volumes:
   postgres_data:
-
-
-#test
+  images_data:

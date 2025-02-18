@@ -9,7 +9,7 @@ from filters import PrivateChatFilter
 from keyboards.constants import PRIVATE_COMMANDS, CHAT_COMMANDS, NOT_NICKNAME, START_MESSAGE
 from keyboards.game_keyboards import create_main_game_keyboard, SubscribeCallbackData, create_team_finder_keyboard, \
     GameRoleCallbackData, SubscribeFromChannelCallbackData, create_dynamic_game_keyboard, \
-    create_team_search_menu_keyboard
+    create_team_search_menu_keyboard, create_only_link_keyboard
 from loader import game_dao, user_dao, user_subs_dao, user_role_dao
 from logging_config import bot_logger
 from messages.messages import format_game_message
@@ -31,7 +31,7 @@ async def cmd_start(message: types.Message):
             nickname=message.from_user.username or f"User_{message.from_user.id}"
         )
 
-    await message.answer(START_MESSAGE)
+    await message.answer(START_MESSAGE, parse_mode="HTML", )
 
 
 def split_games_list(games, max_length=4096):
@@ -43,9 +43,9 @@ def split_games_list(games, max_length=4096):
     for game in games:
         game_text = (
             f"🎮 <b>{game.name}</b>\n"
-            f"📅 Дата начала: {game.start_date.strftime('%d.%m.%Y %H:%M')}\n"
-            f"📅 Дата окончания: {game.end_date.strftime('%d.%m.%Y %H:%M') if game.end_date else 'Отсутствует'}\n"
-            f"👥 Количество участников: {game.max_players or 'Не указано'}\n"
+            f"<b>📅 Начало:</b> {game.start_date.strftime('%d.%m.%Y %H:%M')}\n"
+            f"<b>📅 Конец:</b> {game.end_date.strftime('%d.%m.%Y %H:%M') if game.end_date else 'Отсутствует'}\n"
+            f"👥 <b>Ограничение игроков</b>: {game.max_players or 'Не указано'}\n"
         )
         game_link = game.link
         game_id = game.id
@@ -127,6 +127,8 @@ async def upcoming_games_command(message: Message):
 @router.message(Command(commands='active'), PrivateChatFilter())
 @ensure_user_registered(user_dao)
 async def active_games_command(message: Message):
+    user_id = message.from_user.id
+
     all_upcoming_games = await game_dao.get_all(
         state=GameState.ACTIVE.value, order_by="end_date"
     )
@@ -136,10 +138,10 @@ async def active_games_command(message: Message):
         return
 
     game_parts = split_games_list(all_upcoming_games)
-
     for part in game_parts:
         for game_text, game_link, game_id, image_url in part:
-            keyboard = create_main_game_keyboard(game_link, game_id)
+            is_subscribed = await user_subs_dao.is_user_subscribed(user_id=user_id, game_id=game_id)
+            keyboard = create_dynamic_game_keyboard(game_link, game_id, is_subscribed)
 
             # await message.answer(
             #     game_text,
@@ -210,9 +212,9 @@ async def handle_subscribe_callback(callback_query: CallbackQuery, callback_data
         # except Exception as e:
         #     print(f"Ошибка при отправке сплывающего сообщения: {e}")
         game = await game_dao.get(id=game_id)
-        message_text = f"<b>Вы отписались от игры {game.name}.</b>"
+        message_text = f"Вы отписались от игры <b>{game.name}</b>."
         try:
-            await bot.send_message(user_id, message_text)
+            await bot.send_message(user_id, message_text, parse_mode="HTML")
             await bot.delete_message(chat_id=callback_query.message.chat.id,
                                      message_id=callback_query.message.message_id)
         except Exception as e:
@@ -255,7 +257,7 @@ async def subs_command(message: types.Message):
             caption=text,
             parse_mode="HTML",
             reply_markup=keyboard
-            )
+        )
         #
         # await message.answer(
         #     text,
@@ -328,6 +330,7 @@ async def handle_game_role_callback(callback_query: CallbackQuery, callback_data
 
     opposite_role = "Команда" if role == "Игрок" else "Игрок"
     matched_users = await user_role_dao.get_opposite_role_users(game_id, opposite_role)
+    # message = f'<b><a href="{game.link}">Игра : «{game.name}»</a></b>\n'
     message = ''
     user_list = "\n".join([f"@{nickname}" for nickname in matched_users])
     if matched_users:
@@ -349,10 +352,11 @@ async def handle_game_role_callback(callback_query: CallbackQuery, callback_data
 
     new_keyboard = create_team_search_menu_keyboard(game_id, is_searching=True, players_count=players_count,
                                                     teams_count=teams_count)
+    link_keyboard = create_only_link_keyboard(game.link)
 
     try:
         await bot.answer_callback_query(callback_query.id, text=response_text)
-        await bot.send_message(chat_id=callback_query.message.chat.id, text=message, parse_mode="HTML")
+        await bot.send_message(chat_id=callback_query.message.chat.id, text=message,reply_markup=link_keyboard, parse_mode="HTML")
         await bot.edit_message_reply_markup(chat_id=callback_query.message.chat.id,
                                             message_id=callback_query.message.message_id,
                                             reply_markup=new_keyboard)

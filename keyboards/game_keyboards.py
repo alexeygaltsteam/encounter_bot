@@ -39,7 +39,7 @@ def create_main_game_keyboard(link: str, game_id: int) -> InlineKeyboardMarkup:
     """Создает клавиатуру с кнопками"""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Ссылка на игру", url=link)],
-        [InlineKeyboardButton(text="Хочу играть!",
+        [InlineKeyboardButton(text="Подписаться на игру",
                               callback_data=SubscribeCallbackData(game_id=game_id, action="subscribe").pack())],
     ])
 
@@ -54,7 +54,7 @@ def create_dynamic_game_keyboard(link: str, game_id: int, is_subscribed: bool) -
     else:
         return InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="Ссылка на игру", url=link)],
-            [InlineKeyboardButton(text="Хочу играть!",
+            [InlineKeyboardButton(text="Подписаться на игру",
                                   callback_data=SubscribeCallbackData(game_id=game_id, action="subscribe").pack())]
         ])
 
@@ -111,6 +111,10 @@ def create_team_finder_keyboard(game_id: int, link: str) -> InlineKeyboardMarkup
                               callback_data=SubscribeCallbackData(game_id=game_id, action="unsubscribe").pack())]
     ])
 
+
+def create_only_link_keyboard(link: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Ссылка на игру", url=link)]])
 
 # def create_team_search_menu_keyboard(game_id: int) -> InlineKeyboardMarkup:
 #     """Создает клавиатуру для поиска сокомандника"""
