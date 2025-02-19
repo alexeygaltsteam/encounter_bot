@@ -110,7 +110,7 @@ async def upcoming_games_command(message: Message):
             #     parse_mode="HTML",
             #     reply_markup=keyboard
             # )
-            file_name = image_url.split("/")[-1] if image_url else "DEFAULT.jpg"
+            file_name = image_url.split("/")[-1] if image_url else None
             photo_path = Path(f"images/{file_name}").resolve()
             if not photo_path.exists() or not photo_path.is_file():
                 bot_logger.info(f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию.")
@@ -149,7 +149,7 @@ async def active_games_command(message: Message):
             #     parse_mode="HTML",
             #     reply_markup=keyboard
             # )
-            file_name = image_url.split("/")[-1] if image_url else "DEFAULT.jpg"
+            file_name = image_url.split("/")[-1] if image_url else None
             photo_path = Path(f"images/{file_name}").resolve()
             if not photo_path.exists() or not photo_path.is_file():
                 bot_logger.info(f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию.")
@@ -246,7 +246,7 @@ async def subs_command(message: types.Message):
         keyboard = create_team_finder_keyboard(game.id, game.link)
         image_url = game.image
 
-        file_name = image_url.split("/")[-1] if image_url else "DEFAULT.jpg"
+        file_name = image_url.split("/")[-1] if image_url else None
         photo_path = Path(f"images/{file_name}").resolve()
         if not photo_path.exists() or not photo_path.is_file():
             bot_logger.info(f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию.")
@@ -272,6 +272,9 @@ async def open_team_search(callback_query: CallbackQuery, callback_data: GameRol
     """Обрабатывает нажатие на кнопку 'Поиск сокомандника' и меняет клавиатуру"""
     game_id = callback_data.game_id
     user_id = callback_query.from_user.id
+    game = await game_dao.get(id=game_id)
+    if not game:
+        return f"Упс {game_id} уже не существует."
 
     counts = await get_players_and_teams_count(game_id)
     players_count = counts["players"]
@@ -289,6 +292,8 @@ async def back_to_main(callback_query: CallbackQuery, callback_data: GameRoleCal
     """Обрабатывает кнопку 'Назад' и возвращает основную клавиатуру"""
     game_id = callback_data.game_id
     game = await game_dao.get(id=game_id)
+    if not game:
+        return f"Упс {game_id} уже не существует."
     new_keyboard = create_team_finder_keyboard(game_id, game.link)
 
     await callback_query.message.edit_reply_markup(reply_markup=new_keyboard)
@@ -301,6 +306,8 @@ async def handle_game_role_callback(callback_query: CallbackQuery, callback_data
     action = callback_data.action
     user_id = callback_query.from_user.id
     game = await game_dao.get(id=game_id)
+    if not game:
+        return f"Упс {game_id} уже не существует."
 
     if action == "cancel_search":
         user = await user_dao.get(telegram_id=user_id)

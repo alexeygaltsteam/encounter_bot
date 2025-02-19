@@ -41,6 +41,7 @@ def format_annonsed_game_message(game: GameDate, header: str) -> str:
 <b>🎮 {game.name}</b>
 <b>📅 Начало:</b> {game.start_date.strftime('%d.%m.%Y %H:%M:%S')}
 <b>📆 Конец:</b> {game.end_date.strftime('%d.%m.%Y %H:%M:%S') if game.end_date else "Отсутствует"}
+<b>📝 Автор(ы):</b> {game.author}
 <b>👥 Ограничение игроков:</b> {game.max_players}
 """
 
@@ -74,7 +75,7 @@ async def send_game_message(bot, game, message_type: str):
 
     try:
         # await bot.send_message(settings.CHAT_ID, message, parse_mode=ParseMode.HTML, reply_markup=keyboard)
-        file_name = game.image.split("/")[-1] if game.image else "DEFAULT.jpg"
+        file_name = game.image.split("/")[-1] if game.image else None
         photo_path = Path(f"images/{file_name}").resolve()
 
         if not photo_path.exists() or not photo_path.is_file():
@@ -173,7 +174,7 @@ async def send_game_message_date_change(
 
     try:
         # await bot.send_message(settings.CHAT_ID, message, parse_mode=ParseMode.HTML, reply_markup=keyboard)
-        file_name = game.image.split("/")[-1] if game.image else "DEFAULT.jpg"
+        file_name = game.image.split("/")[-1] if game.image else None
         photo_path = Path(f"images/{file_name}").resolve()
 
         if not photo_path.exists() or not photo_path.is_file():
