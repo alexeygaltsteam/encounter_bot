@@ -206,9 +206,10 @@ async def run_parsing() -> None:
         parsed_game_ids = {game.id for game in all_game_data}
 
         games_to_delete = existing_game_ids - parsed_game_ids
-        for game_id in games_to_delete:
-            await game_dao.delete(id=game_id)
-            parser_logger.info(f"Удален объект: {game_id}")
+        if len(games_to_delete) < 9:
+            for game_id in games_to_delete:
+                await game_dao.delete(id=game_id)
+                parser_logger.info(f"Удален объект: {game_id}")
 
         await asyncio.sleep(10)
         for game in all_game_data:
