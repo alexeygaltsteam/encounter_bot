@@ -1,7 +1,10 @@
 from datetime import datetime
+
+from sqlalchemy import delete
+
 from db.dao import GameDateDAO
-from db.models import GameState
-from loader import db, user_role_dao
+from db.models import GameState, UserGameSubscription, UserGameRole
+from loader import db, user_role_dao, user_subs_dao
 from logging_config import bot_logger
 import pytz
 from functools import wraps

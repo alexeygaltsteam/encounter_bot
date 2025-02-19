@@ -25,7 +25,7 @@ from settings import settings
 def format_game_message(game: GameDate, header: str) -> str:
     """Формирует текст сообщения с информацией об игре"""
     return f"""{header}
-<b>🎮 {game.name}:</b>
+<b>🎮 {game.name}</b>
 <b>🕒 Начало:</b> {game.start_date.strftime('%d.%m.%Y %H:%M:%S')}
 <b>🕒 Конец:</b> {game.end_date.strftime('%d.%m.%Y %H:%M:%S') if game.end_date else "Отсутствует"}
 <b>📝 Автор(ы):</b> {game.author}
@@ -38,7 +38,7 @@ def format_game_message(game: GameDate, header: str) -> str:
 def format_annonsed_game_message(game: GameDate, header: str) -> str:
     """Формирует текст сообщения с информацией об игре"""
     return f"""{header}
-<b>🎮 {game.name}:</b>
+<b>🎮 {game.name}</b>
 <b>📅 Начало:</b> {game.start_date.strftime('%d.%m.%Y %H:%M:%S')}
 <b>📆 Конец:</b> {game.end_date.strftime('%d.%m.%Y %H:%M:%S') if game.end_date else "Отсутствует"}
 <b>👥 Ограничение игроков:</b> {game.max_players}
@@ -48,7 +48,7 @@ def format_annonsed_game_message(game: GameDate, header: str) -> str:
 def format_game_message_with_change(game: GameDate, header: str) -> str:
     """Формирует текст сообщения с информацией об игре"""
     return f"""{header}
-<b>🎮 {game.name}:</b>
+<b>🎮 {game.name}</b>
 <b>📝 Автор(ы):</b> {game.author}
 """
 

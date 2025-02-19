@@ -3,7 +3,9 @@ import aiohttp
 import asyncio
 import re
 from bs4 import BeautifulSoup
-from db.models import GameState
+from sqlalchemy import update, delete
+
+from db.models import GameState, GameDate as GameModel, UserGameSubscription, UserGameRole
 from loader import game_dao
 from .schemas import GameDate, AdditionalData
 from .utils import extract_limit
@@ -12,6 +14,11 @@ from logging_config import parser_logger
 GAMES_URLS = [
     ("https://kovrov.en.cx/GameCalendar.aspx?status=Coming&type=Team&zone=Virtual", "team"),
     ("https://kovrov.en.cx/GameCalendar.aspx?status=Coming&type=Single&zone=Virtual", "single")
+]
+
+ACTIVE_GAMES_URLS = [
+    ("https://arcticsearch.en.cx/GameCalendar.aspx?status=Active&type=Team&zone=Virtual", "team"),
+    ("https://arcticsearch.en.cx/GameCalendar.aspx?status=Active&type=Single&zone=Virtual", "single")
 ]
 
 DEFAULT_HEADERS = {
@@ -208,6 +215,41 @@ async def run_parsing() -> None:
             await game_dao.create(**game.model_dump())
 
         parser_logger.info(f"Парсер завершил работу.")
+
+
+async def parsing_active_games() -> None:
+    max_connections = 150
+    connector = aiohttp.TCPConnector(limit=max_connections)
+    timeout = aiohttp.ClientTimeout(total=300)
+
+    async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+        all_game_data = []
+        for url, game_type in ACTIVE_GAMES_URLS:
+            game_data = await fetch_and_parse_games(session, url, game_type)
+            all_game_data.extend(game_data)
+
+        games_id = {game.id for game in all_game_data}
+        games_from_db = {game.id for game in await game_dao.get_all(state=GameState.ACTIVE.value)}
+
+        games_to_complete = games_from_db - games_id
+        if games_to_complete:
+            parser_logger.info(f"Переводим в COMPLETED {len(games_to_complete)} игр: {games_to_complete}")
+            await game_dao.session.execute(
+                update(GameModel)
+                .where(GameModel.id.in_(games_to_complete))
+                .values(state=GameState.COMPLETED.value)
+            )
+            parser_logger.info("Статусы игр успешно обновлены.")
+
+            await game_dao.session.execute(
+                delete(UserGameSubscription).where(UserGameSubscription.game_id.in_(games_to_complete))
+            )
+            await game_dao.session.execute(
+                delete(UserGameRole).where(UserGameRole.game_id.in_(games_to_complete))
+            )
+            await game_dao.session.commit()
+        else:
+            parser_logger.info("Все активные игры актуальны, обновление не требуется.")
 
 
 if __name__ == "__main__":

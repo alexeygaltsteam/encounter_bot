@@ -8,7 +8,7 @@ from keyboards.game_keyboards import set_main_menu
 from loader import bot, dp, db, game_dao
 from logging_config import bot_logger
 from messages.scheduler_messages import check_and_send_messages
-from parser.parser import run_parsing
+from parser.parser import run_parsing, parsing_active_games
 from handlers.main_handlers import router as main_router
 
 router = Router()
@@ -28,12 +28,11 @@ async def on_startup(dp):
     scheduler = AsyncIOScheduler()
 
     scheduler.add_job(run_parsing, CronTrigger(minute="15,45"))
+    scheduler.add_job(parsing_active_games, CronTrigger(minute="45"))
     scheduler.add_job(check_and_send_messages, CronTrigger(minute="20,50"), args=[game_dao, bot])
     scheduler.add_job(update_game_states, CronTrigger(minute="5,35"))
 
     scheduler.start()
-    # await run_parsing()
-    #
     # from apscheduler.triggers.interval import IntervalTrigger
     #
     # scheduler.add_job(run_parsing, IntervalTrigger(minutes=2))
