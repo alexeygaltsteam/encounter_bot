@@ -33,9 +33,9 @@ async def on_startup(dp):
     scheduler.add_job(update_game_states, CronTrigger(minute="5,35"))
 
     scheduler.start()
-    # await run_parsing()
+    # await parsing_active_games()
     # from apscheduler.triggers.interval import IntervalTrigger
-    await check_and_send_messages(game_dao, bot)
+    # await check_and_send_messages(game_dao, bot)
     # scheduler.add_job(run_parsing, IntervalTrigger(minutes=2))
     # scheduler.add_job(check_and_send_messages, IntervalTrigger(minutes=2), args=[game_dao, bot])
     # scheduler.add_job(update_game_states, IntervalTrigger(minutes=2))

@@ -9,7 +9,7 @@ from db.models import GameDate
 from keyboards.constants import GAME_ANNOUNCEMENT, GAME_START, GAME_DATE_CHANGE
 from keyboards.game_keyboards import default_game_keyboard
 from logging_config import bot_logger
-from settings import settings
+from settings import  CHATS_ID
 
 
 # def format_game_message(game: GameDate, header: str) -> str:
@@ -82,7 +82,7 @@ async def send_game_message(bot, game, message_type: str):
             bot_logger.info(f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию.")
             photo_path = Path("images/DEFAULT.jpg").resolve()
 
-        for chat in settings.CHATS_ID:
+        for chat in CHATS_ID:
             await bot.send_photo(
                 chat_id=chat,
                 photo=FSInputFile(str(photo_path)),
@@ -182,7 +182,7 @@ async def send_game_message_date_change(
             bot_logger.info(f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию.")
             photo_path = Path("images/DEFAULT.jpg").resolve()
 
-        for chat in settings.CHATS_ID:
+        for chat in CHATS_ID:
             await bot.send_photo(
                 chat_id=chat,
                 photo=FSInputFile(str(photo_path)),

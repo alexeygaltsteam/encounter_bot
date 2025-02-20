@@ -229,6 +229,8 @@ async def parsing_active_games() -> None:
             game_data = await fetch_and_parse_games(session, url, game_type)
             all_game_data.extend(game_data)
 
+            await gather_additional_game_data(session, all_game_data)
+
         games_id = {game.id for game in all_game_data}
         games_from_db = {game.id for game in await game_dao.get_all(state=GameState.ACTIVE.value)}
 
