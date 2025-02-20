@@ -13,7 +13,7 @@ def extract_limit(text: str) -> int:
     return 0
 
 
-async def download_image(image_url, save_dir="images"):
+async def download_image(image_url, game_id, save_dir="images"):
     """Асинхронно загружает изображение по ссылке и сохраняет его локально."""
     os.makedirs(save_dir, exist_ok=True)
 
@@ -21,7 +21,9 @@ async def download_image(image_url, save_dir="images"):
         parser_logger.info(f"❌ Ошибка: Неверный URL -> {image_url}")
         return None
 
-    file_name = image_url.split("/")[-1]
+    # file_name = image_url.split("/")[-1]
+    # file_path = os.path.join(save_dir, file_name)
+    file_name = str(game_id) + '.' + image_url.split('.')[-1]
     file_path = os.path.join(save_dir, file_name)
 
     try:

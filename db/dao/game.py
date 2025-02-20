@@ -35,7 +35,7 @@ class GameDateDAO(BaseDAO):
                     if key == "image" and isinstance(value, str) and value.startswith("http"):
                         current_image = getattr(existing_instance, key, None)
                         if current_image != value:
-                            download_result = await download_image(value)
+                            download_result = await download_image(value, game_id=existing_instance.id)
 
                             if download_result is not None:
                                 setattr(existing_instance, key, value)
@@ -91,7 +91,7 @@ class GameDateDAO(BaseDAO):
             self.session.add(instance)
             parser_logger.info(f"Создан новый объект: {kwargs.get('id')}")
             # await download_image(image_url=instance.image)
-            download_result = await download_image(image_url=instance.image)
+            download_result = await download_image(image_url=instance.image, game_id=instance.id)
             if download_result is None:
                 parser_logger.info(f"❌ Не удалось загрузить изображение для {kwargs.get('id')}. Устанавливаем None.")
                 instance.image = None

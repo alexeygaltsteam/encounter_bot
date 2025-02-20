@@ -33,6 +33,7 @@ async def on_startup(dp):
     scheduler.add_job(update_game_states, CronTrigger(minute="5,35"))
 
     scheduler.start()
+    # await run_parsing()
     # from apscheduler.triggers.interval import IntervalTrigger
     #
     # scheduler.add_job(run_parsing, IntervalTrigger(minutes=2))

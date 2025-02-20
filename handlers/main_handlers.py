@@ -110,7 +110,8 @@ async def upcoming_games_command(message: Message):
             #     parse_mode="HTML",
             #     reply_markup=keyboard
             # )
-            file_name = image_url.split("/")[-1] if image_url else None
+            # file_name = image_url.split("/")[-1] if image_url else None
+            file_name = str(game_id) + '.' + image_url.split('.')[-1] if image_url else None
             photo_path = Path(f"images/{file_name}").resolve()
             if not photo_path.exists() or not photo_path.is_file():
                 bot_logger.info(f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию.")
@@ -149,7 +150,8 @@ async def active_games_command(message: Message):
             #     parse_mode="HTML",
             #     reply_markup=keyboard
             # )
-            file_name = image_url.split("/")[-1] if image_url else None
+            # file_name = image_url.split("/")[-1] if image_url else None
+            file_name = str(game_id) + '.' + image_url.split('.')[-1] if image_url else None
             photo_path = Path(f"images/{file_name}").resolve()
             if not photo_path.exists() or not photo_path.is_file():
                 bot_logger.info(f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию.")
@@ -246,7 +248,8 @@ async def subs_command(message: types.Message):
         keyboard = create_team_finder_keyboard(game.id, game.link)
         image_url = game.image
 
-        file_name = image_url.split("/")[-1] if image_url else None
+        # file_name = image_url.split("/")[-1] if image_url else None
+        file_name = str(game.id) + '.' + image_url.split('.')[-1] if image_url else None
         photo_path = Path(f"images/{file_name}").resolve()
         if not photo_path.exists() or not photo_path.is_file():
             bot_logger.info(f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию.")
