@@ -75,20 +75,21 @@ async def send_game_message(bot, game, message_type: str):
 
     try:
         # await bot.send_message(settings.CHAT_ID, message, parse_mode=ParseMode.HTML, reply_markup=keyboard)
-        file_name = game.image.split("/")[-1] if game.image else None
+        file_name = str(game.id) + '.' + game.image.split('.')[-1] if game.image else None
         photo_path = Path(f"images/{file_name}").resolve()
 
         if not photo_path.exists() or not photo_path.is_file():
             bot_logger.info(f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию.")
             photo_path = Path("images/DEFAULT.jpg").resolve()
 
-        await bot.send_photo(
-            chat_id=settings.CHAT_ID,
-            photo=FSInputFile(str(photo_path)),
-            caption=message,
-            parse_mode=ParseMode.HTML,
-            reply_markup=keyboard
-        )
+        for chat in settings.CHATS_ID:
+            await bot.send_photo(
+                chat_id=chat,
+                photo=FSInputFile(str(photo_path)),
+                caption=message,
+                parse_mode=ParseMode.HTML,
+                reply_markup=keyboard
+            )
         bot_logger.info(f"Сообщение {message_type} для игры {game.id} успешно отправлено.")
     except Exception as e:
         bot_logger.error(f"Ошибка при отправке сообщения {message_type} для игры {game.id}: {e}")
@@ -174,20 +175,21 @@ async def send_game_message_date_change(
 
     try:
         # await bot.send_message(settings.CHAT_ID, message, parse_mode=ParseMode.HTML, reply_markup=keyboard)
-        file_name = game.image.split("/")[-1] if game.image else None
+        file_name = str(game.id) + '.' + game.image.split('.')[-1] if game.image else None
         photo_path = Path(f"images/{file_name}").resolve()
 
         if not photo_path.exists() or not photo_path.is_file():
             bot_logger.info(f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию.")
             photo_path = Path("images/DEFAULT.jpg").resolve()
 
-        await bot.send_photo(
-            chat_id=settings.CHAT_ID,
-            photo=FSInputFile(str(photo_path)),
-            caption=message,
-            parse_mode=ParseMode.HTML,
-            reply_markup=keyboard
-        )
+        for chat in settings.CHATS_ID:
+            await bot.send_photo(
+                chat_id=chat,
+                photo=FSInputFile(str(photo_path)),
+                caption=message,
+                parse_mode=ParseMode.HTML,
+                reply_markup=keyboard
+            )
         bot_logger.info(f"Сообщение об изменении дат для игры {game.id} успешно отправлено.")
     except Exception as e:
         bot_logger.error(f"Ошибка при отправке сообщения об изменении дат для игры {game.id}: {e}")
