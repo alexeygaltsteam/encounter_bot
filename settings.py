@@ -30,16 +30,22 @@ class Settings(BaseSettings):
     DB_PASS: str
     DB_NAME: str
     BOT_TOKEN: str
-    CHATS_ID: List
+    CHATS_ID: str
 
     @property
     def get_database_url(self):
         return f'postgresql+asyncpg://{self.DB_USER}:{self.DB_PASS}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}'
 
+    @property
+    def get_chat_ids(self):
+        if self.CHATS_ID:
+            return [chat_id.strip() for chat_id in self.CHATS_ID.split(',')]
+        return []
     class Config:
         env_file = '.env'
 
 
 settings = Settings()
+CHATS_ID = settings.get_chat_ids
 
 DATABASE_URL = settings.get_database_url
