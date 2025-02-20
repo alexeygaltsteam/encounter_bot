@@ -12,7 +12,7 @@ services:
       DB_PASS: $DB_PASS
       DB_NAME: $DB_NAME
       BOT_TOKEN: $BOT_TOKEN
-      CHAT_IDS: $CHATS_ID
+      CHATS_ID: $CHATS_ID
 
     command: sh -c "alembic upgrade head && python main.py"
     depends_on:
