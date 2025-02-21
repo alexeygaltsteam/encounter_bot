@@ -37,12 +37,14 @@ def format_game_message(game: GameDate, header: str) -> str:
 
 def format_annonsed_game_message(game: GameDate, header: str) -> str:
     """Формирует текст сообщения с информацией об игре"""
+    players = "Один игрок" if game.game_type == "single" else (
+        game.max_players if game.max_players > 0 else "Не указано")
     return f"""{header}
 <b>🎮 {game.name}</b>
 <b>📅 Начало:</b> {game.start_date.strftime('%d.%m.%Y %H:%M:%S')}
 <b>📆 Конец:</b> {game.end_date.strftime('%d.%m.%Y %H:%M:%S') if game.end_date else "Отсутствует"}
 <b>📝 Автор(ы):</b> {game.author}
-<b>👥 Ограничение игроков:</b> {game.max_players}
+<b>👥 Ограничение игроков:</b> {players}
 """
 
 

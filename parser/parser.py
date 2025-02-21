@@ -219,22 +219,23 @@ async def run_parsing() -> None:
 
 
 async def parsing_active_games() -> None:
+    active_games_from_db = {game.id for game in await game_dao.get_all(state=GameState.ACTIVE.value)}
+    upcoming_games_from_db = {game.id for game in await game_dao.get_all(state=GameState.UPCOMING.value)}
+
     max_connections = 150
     connector = aiohttp.TCPConnector(limit=max_connections)
     timeout = aiohttp.ClientTimeout(total=300)
 
     async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
-        all_game_data = []
+        active_game_data = []
         for url, game_type in ACTIVE_GAMES_URLS:
             game_data = await fetch_and_parse_games(session, url, game_type)
-            all_game_data.extend(game_data)
+            active_game_data.extend(game_data)
 
-            await gather_additional_game_data(session, all_game_data)
+        await gather_additional_game_data(session, active_game_data)
+        active_games_id = {game.id for game in active_game_data}
 
-        games_id = {game.id for game in all_game_data}
-        games_from_db = {game.id for game in await game_dao.get_all(state=GameState.ACTIVE.value)}
-
-        games_to_complete = games_from_db - games_id
+        games_to_complete = active_games_from_db - active_games_id
         if games_to_complete:
             parser_logger.info(f"Переводим в COMPLETED {len(games_to_complete)} игр: {games_to_complete}")
             await game_dao.session.execute(
@@ -253,6 +254,46 @@ async def parsing_active_games() -> None:
             await game_dao.session.commit()
         else:
             parser_logger.info("Все активные игры актуальны, обновление не требуется.")
+    #
+    # async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+    #     upcoming_games_data = []
+    #
+    #     for url, game_type in GAMES_URLS:
+    #         game_data = await fetch_and_parse_games(session, url, game_type)
+    #         upcoming_games_data.extend(game_data)
+    #
+    #     await gather_additional_game_data(session, upcoming_games_data)
+    #
+    #     upcoming_games_id = {game.id for game in upcoming_games_data}
+    #
+    #     missing_upcoming_games = upcoming_games_from_db - upcoming_games_id
+    #     if missing_upcoming_games:
+    #         for game_id in missing_upcoming_games:
+    #             game = next((g for g in upcoming_games_data if g.id == game_id), None)
+    #
+    #             if game:
+    #                 parser_logger.info(f"Обновляем игру {game_id}, переводим в ACTIVE и обновляем поля")
+    #                 await game_dao.session.execute(
+    #                     update(GameModel)
+    #                     .where(GameModel.id == game_id)
+    #                     .values(name=game.name,
+    #                             start_date=game.start_date,
+    #                             end_date=game.end_date,
+    #                             image=game.image,
+    #                             state=GameState.ACTIVE.value)
+    #                 )
+    #
+    #             else:
+    #                 parser_logger.info(f"Архивируем игру {game_id}")
+    #                 await game_dao.session.execute(
+    #                     update(GameModel)
+    #                     .where(GameModel.id == game_id)
+    #                     .values(state=GameState.ARCHIVED.value)
+    #                 )
+    #
+    #         await game_dao.session.commit()
+    #     else:
+    #         parser_logger.info("Все предстоящие игры актуальны, обновление не требуется.")
 
 
 if __name__ == "__main__":

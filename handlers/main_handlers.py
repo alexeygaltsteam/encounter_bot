@@ -41,11 +41,15 @@ def split_games_list(games, max_length=4096):
     current_length = 0
 
     for game in games:
+        players = "Один игрок" if game.game_type == "single" else (
+            game.max_players if game.max_players > 0 else "Не указано")
         game_text = (
             f"🎮 <b>{game.name}</b>\n"
             f"<b>📅 Начало:</b> {game.start_date.strftime('%d.%m.%Y %H:%M')}\n"
             f"<b>📅 Конец:</b> {game.end_date.strftime('%d.%m.%Y %H:%M') if game.end_date else 'Отсутствует'}\n"
-            f"👥 <b>Ограничение игроков</b>: {game.max_players or 'Не указано'}\n"
+            f"<b>📝 Автор(ы):</b> {game.author}\n"
+            # f"👥 <b>Ограничение игроков</b>: {game.max_players if game.max_players > 0 else 'Не указано'}\n"
+            f"👥 <b>Ограничение игроков</b>: {players}\n"
         )
         game_link = game.link
         game_id = game.id
@@ -396,7 +400,8 @@ async def handle_subscribe_from_channel_callback(callback_query: CallbackQuery,
 
     if action == "subscribe_channel":
         await user_subs_dao.add_user_to_subscription(game_id=game_id, user_id=user_id)
-        message_text = f"Привет! Вы подписались на игру {game_id}. Для просмотра подписок использвуйте /subs"
+        game = await game_dao.get(game_id=game_id)
+        message_text = f"Привет! Вы подписались на игру <b>{game.name}</b>. Для просмотра подписок использвуйте /subs"
         try:
             await bot.send_message(user_id, message_text)
             await bot.answer_callback_query(callback_query.id, text="Мы отправили вам сообщение!")
