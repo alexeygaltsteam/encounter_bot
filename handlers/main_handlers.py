@@ -400,7 +400,7 @@ async def handle_subscribe_from_channel_callback(callback_query: CallbackQuery,
 
     if action == "subscribe_channel":
         await user_subs_dao.add_user_to_subscription(game_id=game_id, user_id=user_id)
-        game = await game_dao.get(game_id=game_id)
+        game = await game_dao.get(id=game_id)
         message_text = f"Привет! Вы подписались на игру <b>{game.name}</b>. Для просмотра подписок использвуйте /subs"
         try:
             await bot.send_message(user_id, message_text)

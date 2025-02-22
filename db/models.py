@@ -98,6 +98,7 @@ class GameState(PyEnum):
     UPCOMING = 0  # предстоящая
     ACTIVE = 1  # активная
     COMPLETED = 2  # завершенная
+    ARCHIVED = 3  # архивная
 
 
 class UserGameSubscription(Base):

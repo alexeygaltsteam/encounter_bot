@@ -8,7 +8,7 @@ from sqlalchemy import update, delete
 from db.models import GameState, GameDate as GameModel, UserGameSubscription, UserGameRole
 from loader import game_dao
 from .schemas import GameDate, AdditionalData
-from .utils import extract_limit
+from .utils import extract_limit, download_image
 from logging_config import parser_logger
 
 GAMES_URLS = [
@@ -200,16 +200,16 @@ async def run_parsing() -> None:
 
         parser_logger.info(f"Всего игр загружено: {len(all_game_data)}.")
 
-        existing_games = await game_dao.get_all()
-        existing_games = [game for game in existing_games if game.state != GameState.ACTIVE.value]
-        existing_game_ids = {game.id for game in existing_games}
-        parsed_game_ids = {game.id for game in all_game_data}
-
-        games_to_delete = existing_game_ids - parsed_game_ids
-        if len(games_to_delete) < 9:
-            for game_id in games_to_delete:
-                await game_dao.delete(id=game_id)
-                parser_logger.info(f"Удален объект: {game_id}")
+        # existing_games = await game_dao.get_all()
+        # existing_games = [game for game in existing_games if game.state != GameState.ACTIVE.value]
+        # existing_game_ids = {game.id for game in existing_games}
+        # parsed_game_ids = {game.id for game in all_game_data}
+        #
+        # games_to_delete = existing_game_ids - parsed_game_ids
+        # if len(games_to_delete) < 9:
+        #     for game_id in games_to_delete:
+        #         await game_dao.delete(id=game_id)
+        #         parser_logger.info(f"Удален объект: {game_id}")
 
         await asyncio.sleep(10)
         for game in all_game_data:
@@ -254,46 +254,53 @@ async def parsing_active_games() -> None:
             await game_dao.session.commit()
         else:
             parser_logger.info("Все активные игры актуальны, обновление не требуется.")
-    #
-    # async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
-    #     upcoming_games_data = []
-    #
-    #     for url, game_type in GAMES_URLS:
-    #         game_data = await fetch_and_parse_games(session, url, game_type)
-    #         upcoming_games_data.extend(game_data)
-    #
-    #     await gather_additional_game_data(session, upcoming_games_data)
-    #
-    #     upcoming_games_id = {game.id for game in upcoming_games_data}
-    #
-    #     missing_upcoming_games = upcoming_games_from_db - upcoming_games_id
-    #     if missing_upcoming_games:
-    #         for game_id in missing_upcoming_games:
-    #             game = next((g for g in upcoming_games_data if g.id == game_id), None)
-    #
-    #             if game:
-    #                 parser_logger.info(f"Обновляем игру {game_id}, переводим в ACTIVE и обновляем поля")
-    #                 await game_dao.session.execute(
-    #                     update(GameModel)
-    #                     .where(GameModel.id == game_id)
-    #                     .values(name=game.name,
-    #                             start_date=game.start_date,
-    #                             end_date=game.end_date,
-    #                             image=game.image,
-    #                             state=GameState.ACTIVE.value)
-    #                 )
-    #
-    #             else:
-    #                 parser_logger.info(f"Архивируем игру {game_id}")
-    #                 await game_dao.session.execute(
-    #                     update(GameModel)
-    #                     .where(GameModel.id == game_id)
-    #                     .values(state=GameState.ARCHIVED.value)
-    #                 )
-    #
-    #         await game_dao.session.commit()
-    #     else:
-    #         parser_logger.info("Все предстоящие игры актуальны, обновление не требуется.")
+
+        upcoming_games_data = []
+
+        for url, game_type in GAMES_URLS:
+            game_data = await fetch_and_parse_games(session, url, game_type)
+            upcoming_games_data.extend(game_data)
+
+        await gather_additional_game_data(session, upcoming_games_data)
+
+        upcoming_games_id = {game.id for game in upcoming_games_data}
+        games_to_archive = []
+
+        missing_upcoming_games = upcoming_games_from_db - upcoming_games_id
+        if missing_upcoming_games:
+            for game_id in missing_upcoming_games:
+                game = next((g for g in active_game_data if g.id == game_id), None)
+                if game:
+                    parser_logger.info(f"Обновляем игру {game_id}, переводим в ACTIVE и обновляем поля")
+                    await game_dao.session.execute(
+                        update(GameModel)
+                        .where(GameModel.id == game_id)
+                        .values(name=game.name,
+                                start_date=game.start_date,
+                                end_date=game.end_date,
+                                image=game.image,
+                                state=GameState.ACTIVE.value)
+                    )
+                    await download_image(game_id=game.id, image_url=game.image)
+                    await game_dao.session.commit()
+                    parser_logger.info(f"{game_id} обновлена")
+
+                else:
+                    games_to_archive.append(game_id)
+
+        if len(games_to_archive) <= 5:
+            for game_id in games_to_archive:
+                parser_logger.info(f"Архивируем игру {game_id}")
+                await game_dao.session.execute(
+                    update(GameModel)
+                    .where(GameModel.id == game_id)
+                    .values(state=GameState.ARCHIVED.value)
+                )
+            await game_dao.session.commit()
+            parser_logger.info(f"{games_to_archive} заархивированны.")
+
+        if not games_to_archive:
+            parser_logger.info("Все предстоящие игры актуальны, обновление не требуется.")
 
 
 if __name__ == "__main__":
