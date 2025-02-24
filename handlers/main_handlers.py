@@ -48,6 +48,7 @@ def split_games_list(games, max_length=4096):
             f"<b>📅 Начало:</b> {game.start_date.strftime('%d.%m.%Y %H:%M')}\n"
             f"<b>📅 Конец:</b> {game.end_date.strftime('%d.%m.%Y %H:%M') if game.end_date else 'Отсутствует'}\n"
             f"<b>📝 Автор(ы):</b> {game.author}\n"
+            f"<b>🌐 Домен:</b> {game.domain}\n"
             # f"👥 <b>Ограничение игроков</b>: {game.max_players if game.max_players > 0 else 'Не указано'}\n"
             f"👥 <b>Ограничение игроков</b>: {players}\n"
         )

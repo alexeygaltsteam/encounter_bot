@@ -24,12 +24,18 @@ from settings import  CHATS_ID
 #     """
 def format_game_message(game: GameDate, header: str) -> str:
     """Формирует текст сообщения с информацией об игре"""
+    try:
+        price = game.price.split(' ')[0] if game.price.split(' ')[0] != '0' else "Не указано"
+    except Exception:
+        price = "Не указано"
+
     return f"""{header}
 <b>🎮 {game.name}</b>
 <b>🕒 Начало:</b> {game.start_date.strftime('%d.%m.%Y %H:%M:%S')}
 <b>🕒 Конец:</b> {game.end_date.strftime('%d.%m.%Y %H:%M:%S') if game.end_date else "Отсутствует"}
 <b>📝 Автор(ы):</b> {game.author}
-<b>💰 Взнос:</b> {game.price}
+<b>🌐 Домен:</b> {game.domain}
+<b>💰 Взнос:</b> {price}
 <b>🎭 Тип игры:</b> {'Одиночная' if game.game_type == 'single' else 'Командная'}
 <b>👥 Ограничение игроков:</b> {game.max_players}
 """
@@ -44,6 +50,7 @@ def format_annonsed_game_message(game: GameDate, header: str) -> str:
 <b>📅 Начало:</b> {game.start_date.strftime('%d.%m.%Y %H:%M:%S')}
 <b>📆 Конец:</b> {game.end_date.strftime('%d.%m.%Y %H:%M:%S') if game.end_date else "Отсутствует"}
 <b>📝 Автор(ы):</b> {game.author}
+<b>🌐 Домен:</b> {game.domain}
 <b>👥 Ограничение игроков:</b> {players}
 """
 
@@ -53,6 +60,7 @@ def format_game_message_with_change(game: GameDate, header: str) -> str:
     return f"""{header}
 <b>🎮 {game.name}</b>
 <b>📝 Автор(ы):</b> {game.author}
+<b>🌐 Домен:</b> {game.domain}
 """
 
 

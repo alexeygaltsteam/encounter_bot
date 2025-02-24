@@ -109,13 +109,17 @@ async def parse_additional_game_info(html: Optional[str]) -> AdditionalData:
 
     image = None
 
-    for block in author_blocks:
-        next_tag = block.find_next()
-        while next_tag:
-            if next_tag.name == "img":
-                image = next_tag["src"]
-                break
-            next_tag = next_tag.find_next()
+    # for block in author_blocks:
+    #     next_tag = block.find_next()
+    #     while next_tag:
+    #         if next_tag.name == "img":
+    #             image = next_tag["src"]
+    #             break
+    #         next_tag = next_tag.find_next()
+    for img_tag in soup.find_all("img"):
+        if "ОБЛОЖКА" in img_tag.get("title", "") or "ОБЛОЖКА" in img_tag.get("alt", ""):
+            image = img_tag["src"]
+            break
 
     additional_data.image = image
 
