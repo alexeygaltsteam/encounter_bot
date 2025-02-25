@@ -24,6 +24,8 @@ from settings import  CHATS_ID
 #     """
 def format_game_message(game: GameDate, header: str) -> str:
     """Формирует текст сообщения с информацией об игре"""
+    players = "Один игрок" if game.game_type == "single" else (
+        game.max_players if game.max_players > 0 else "Не указано")
     try:
         price = game.price.split(' ')[0] if game.price.split(' ')[0] != '0' else "Не указано"
     except Exception:
@@ -37,7 +39,7 @@ def format_game_message(game: GameDate, header: str) -> str:
 <b>🌐 Домен:</b> {game.domain}
 <b>💰 Взнос:</b> {price}
 <b>🎭 Тип игры:</b> {'Одиночная' if game.game_type == 'single' else 'Командная'}
-<b>👥 Ограничение игроков:</b> {game.max_players}
+<b>👥 Ограничение игроков:</b> {players}
 """
 
 

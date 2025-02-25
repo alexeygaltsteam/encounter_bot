@@ -117,7 +117,7 @@ async def parse_additional_game_info(html: Optional[str]) -> AdditionalData:
     #             break
     #         next_tag = next_tag.find_next()
     for img_tag in soup.find_all("img"):
-        if "ОБЛОЖКА" in img_tag.get("title", "") or "ОБЛОЖКА" in img_tag.get("alt", ""):
+        if any("обложка" in img_tag.get(attr, "").lower() for attr in ["title", "alt"]):
             image = img_tag["src"]
             break
 
@@ -238,6 +238,9 @@ async def parsing_active_games() -> None:
 
         await gather_additional_game_data(session, active_game_data)
         active_games_id = {game.id for game in active_game_data}
+        if not active_games_id:
+            parser_logger.info(f"Парсинг не прошел. Кол-во активных игр: {len(active_games_id)}")
+            return
 
         games_to_complete = active_games_from_db - active_games_id
         if games_to_complete:
@@ -268,6 +271,9 @@ async def parsing_active_games() -> None:
         await gather_additional_game_data(session, upcoming_games_data)
 
         upcoming_games_id = {game.id for game in upcoming_games_data}
+        if not active_games_id:
+            parser_logger.info(f"Парсинг не прошел. Кол-во предстоящих игр: {len(upcoming_games_id)}")
+            return
         games_to_archive = []
 
         missing_upcoming_games = upcoming_games_from_db - upcoming_games_id

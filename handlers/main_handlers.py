@@ -371,7 +371,8 @@ async def handle_game_role_callback(callback_query: CallbackQuery, callback_data
 
     try:
         await bot.answer_callback_query(callback_query.id, text=response_text)
-        await bot.send_message(chat_id=callback_query.message.chat.id, text=message,reply_markup=link_keyboard, parse_mode="HTML")
+        await bot.send_message(chat_id=callback_query.message.chat.id, text=message, reply_markup=link_keyboard,
+                               parse_mode="HTML")
         await bot.edit_message_reply_markup(chat_id=callback_query.message.chat.id,
                                             message_id=callback_query.message.message_id,
                                             reply_markup=new_keyboard)
@@ -416,3 +417,41 @@ async def handle_subscribe_from_channel_callback(callback_query: CallbackQuery,
 async def show_user_subscriptions(callback_query: CallbackQuery):
     await callback_query.message.answer("📋 Ваши подписки: /subs")
     await callback_query.answer()
+
+
+@router.message(Command(commands='actives'), PrivateChatFilter())
+@ensure_user_registered(user_dao)
+async def short_actives_games_command(message: Message):
+    all_upcoming_games = await game_dao.get_all(
+        state=GameState.ACTIVE.value, order_by="end_date"
+    )
+    if not all_upcoming_games:
+        await message.answer("На данный момент нет активных игр.")
+        return
+    games_list = []
+
+    for index, game in enumerate(all_upcoming_games, start=1):
+        game_link = game.link if game.link else "#"
+        game_end_date = game.end_date.strftime('%d.%m.%Y %H:%M') if game.end_date else "Не указана"
+
+        game_name_with_link = f'<a href="{game_link}">{game.name}</a>'
+        players = "Один игрок" if game.game_type == "single" else (
+            game.max_players if game.max_players > 0 else "Не указано")
+        game_info = f"""
+<b>{index}. {game_name_with_link}</b>
+<i>Игроков:</i> {players} 
+<i>Автор:</i> {game.author}
+<i>Дата окончания:</i> {game_end_date}
+"""
+        games_list.append(game_info)
+    max_message_length = 4096
+    current_message = ""
+
+    for game in games_list:
+        if len(current_message) + len(game) + 1 > max_message_length:
+            await message.answer(current_message, parse_mode="HTML")
+            current_message = game
+        else:
+            current_message += game
+    if current_message:
+        await message.answer(current_message, parse_mode="HTML", disable_web_page_preview=True)
