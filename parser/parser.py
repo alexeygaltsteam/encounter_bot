@@ -234,15 +234,21 @@ async def parsing_active_games() -> None:
         active_game_data = []
         for url, game_type in ACTIVE_GAMES_URLS:
             game_data = await fetch_and_parse_games(session, url, game_type)
+            if not game_data:
+                parser_logger.info("Получен пустой результат для игры из ACTIVE_GAMES_URLS. Откатываем изменения")
+                return
             active_game_data.extend(game_data)
 
         await gather_additional_game_data(session, active_game_data)
         active_games_id = {game.id for game in active_game_data}
-        if len(active_games_id) > 4:
+        if not active_games_id:
             parser_logger.info(f"Парсинг не прошел. Кол-во активных игр: {len(active_games_id)}")
             return
 
         games_to_complete = active_games_from_db - active_games_id
+        if len(games_to_complete) > 4:
+            parser_logger.info(f"Перевод больше чем 4 игр в статус COMPLETED невозможен.")
+            return
         if games_to_complete:
             parser_logger.info(f"Переводим в COMPLETED {len(games_to_complete)} игр: {games_to_complete}")
             await game_dao.session.execute(
@@ -266,17 +272,23 @@ async def parsing_active_games() -> None:
 
         for url, game_type in GAMES_URLS:
             game_data = await fetch_and_parse_games(session, url, game_type)
+            if not game_data:
+                parser_logger.info("Получен пустой результат для игры из GAMES_URLS. Откатываем изменения")
+                return
             upcoming_games_data.extend(game_data)
 
         await gather_additional_game_data(session, upcoming_games_data)
 
         upcoming_games_id = {game.id for game in upcoming_games_data}
-        if  len(active_games_id) > 4:
+        if not active_games_id:
             parser_logger.info(f"Парсинг не прошел. Кол-во предстоящих игр: {len(upcoming_games_id)}")
             return
         games_to_archive = []
 
         missing_upcoming_games = upcoming_games_from_db - upcoming_games_id
+        if len(missing_upcoming_games) > 4:
+            parser_logger.info(f"Перевод больше чем 4 игр в статус ACTIVE невозможен.")
+            return
         if missing_upcoming_games:
             for game_id in missing_upcoming_games:
                 game = next((g for g in active_game_data if g.id == game_id), None)
