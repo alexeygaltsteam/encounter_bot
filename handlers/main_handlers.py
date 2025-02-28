@@ -405,7 +405,7 @@ async def handle_subscribe_from_channel_callback(callback_query: CallbackQuery,
         game = await game_dao.get(id=game_id)
         message_text = f"Привет! Вы подписались на игру <b>{game.name}</b>. Для просмотра подписок использвуйте /subs"
         try:
-            await bot.send_message(user_id, message_text)
+            await bot.send_message(user_id, message_text, parse_mode="HTML")
             await bot.answer_callback_query(callback_query.id, text="Мы отправили вам сообщение!")
         except TelegramForbiddenError:
             await bot.answer_callback_query(callback_query.id, text="Мы не смогли отправиль личное сообщение")
