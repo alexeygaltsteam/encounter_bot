@@ -44,7 +44,7 @@ def split_games_list(games, max_length=4096):
         players = "Один игрок" if game.game_type == "single" else (
             game.max_players if game.max_players > 0 else "Не указано")
         game_text = (
-            f"🎮 <b>{game.name}</b>\n"
+            f"<b>🎮 <a href='{game.link}'>{game.name}</a></b>\n"
             f"<b>📅 Начало:</b> {game.start_date.strftime('%d.%m.%Y %H:%M')}\n"
             f"<b>📅 Конец:</b> {game.end_date.strftime('%d.%m.%Y %H:%M') if game.end_date else 'Отсутствует'}\n"
             f"<b>📝 Автор(ы):</b> {game.author}\n"
