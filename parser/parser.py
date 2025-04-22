@@ -275,7 +275,7 @@ async def parsing_active_games() -> None:
             game_data = await fetch_and_parse_games(session, url, game_type)
             if not game_data:
                 parser_logger.info("Получен пустой результат для игры из GAMES_URLS. Откатываем изменения")
-                return
+                continue
             upcoming_games_data.extend(game_data)
 
         await gather_additional_game_data(session, upcoming_games_data)
