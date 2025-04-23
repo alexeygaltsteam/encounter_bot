@@ -247,9 +247,9 @@ async def parsing_active_games() -> None:
             return
 
         games_to_complete = active_games_from_db - active_games_id
-        if len(games_to_complete) > 4:
-            parser_logger.info(f"Перевод больше чем 4 игр в статус COMPLETED невозможен.")
-            return
+        # if len(games_to_complete) > 4:
+        #     parser_logger.info(f"Перевод больше чем 4 игр в статус COMPLETED невозможен.")
+        #     return
         if games_to_complete:
             parser_logger.info(f"Переводим в COMPLETED {len(games_to_complete)} игр: {games_to_complete}")
             await game_dao.session.execute(
