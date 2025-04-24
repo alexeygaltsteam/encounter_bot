@@ -287,9 +287,9 @@ async def parsing_active_games() -> None:
         games_to_archive = []
 
         missing_upcoming_games = upcoming_games_from_db - upcoming_games_id
-        # if len(missing_upcoming_games) > 4:
-        #     parser_logger.info(f"Перевод больше чем 4 игр в статус ACTIVE невозможен.")
-        #     return
+        if len(missing_upcoming_games) > 4:
+            parser_logger.info(f"Перевод больше чем 4 игр в статус ACTIVE невозможен.")
+            return
         if missing_upcoming_games:
             for game_id in missing_upcoming_games:
                 game = next((g for g in active_game_data if g.id == game_id), None)
