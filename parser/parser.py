@@ -191,7 +191,7 @@ async def run_parsing() -> None:
         Главная функция для запуска процесса парсинга.
     """
     max_connections = 150
-    connector = aiohttp.TCPConnector(limit=max_connections)
+    connector = aiohttp.TCPConnector(limit=max_connections, ssl=False)
     timeout = aiohttp.ClientTimeout(total=300)
 
     async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
@@ -227,7 +227,7 @@ async def parsing_active_games() -> None:
     upcoming_games_from_db = {game.id for game in await game_dao.get_all(state=GameState.UPCOMING.value)}
 
     max_connections = 150
-    connector = aiohttp.TCPConnector(limit=max_connections)
+    connector = aiohttp.TCPConnector(limit=max_connections, ssl=False)
     timeout = aiohttp.ClientTimeout(total=300)
 
     async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:

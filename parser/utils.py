@@ -27,7 +27,7 @@ async def download_image(image_url, game_id, save_dir="images"):
     file_path = os.path.join(save_dir, file_name)
 
     try:
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
             async with session.get(image_url) as response:
                 if response.status == 200:
                     async with aiofiles.open(file_path, "wb") as file:
