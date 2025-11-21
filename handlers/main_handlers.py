@@ -24,6 +24,13 @@ def escape_html(text: str) -> str:
     return text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
 
+def get_user_facing_link(link: str) -> str:
+    """Заменяет .encounter.cx на .en.cx для отображения пользователю."""
+    if not link:
+        return link
+    return link.replace('.encounter.cx', '.en.cx')
+
+
 @router.message(CommandStart(), PrivateChatFilter())
 async def cmd_start(message: types.Message):
     if not message.from_user.username:
@@ -50,8 +57,9 @@ def split_games_list(games, max_length=4096):
     for game in games:
         players = "Один игрок" if game.game_type == "single" else (
             game.max_players if game.max_players > 0 else "Не указано")
+        user_link = get_user_facing_link(game.link)
         game_text = (
-            f"<b>🎮 <a href='{game.link}'>{escape_html(game.name)}</a></b>\n"
+            f"<b>🎮 <a href='{user_link}'>{escape_html(game.name)}</a></b>\n"
             f"<b>📅 Начало:</b> {game.start_date.strftime('%d.%m.%Y %H:%M')}\n"
             f"<b>📅 Конец:</b> {game.end_date.strftime('%d.%m.%Y %H:%M') if game.end_date else 'Отсутствует'}\n"
             f"<b>📝 Автор(ы):</b> {escape_html(game.author)}\n"
@@ -59,7 +67,7 @@ def split_games_list(games, max_length=4096):
             # f"👥 <b>Ограничение игроков</b>: {game.max_players if game.max_players > 0 else 'Не указано'}\n"
             f"👥 <b>Ограничение игроков</b>: {players}\n"
         )
-        game_link = game.link
+        game_link = user_link
         game_id = game.id
         image_url = game.image
 
@@ -257,7 +265,7 @@ async def subs_command(message: types.Message):
     for game in games:
         header = "🔎 <b>Поиск игроков и команд!</b>"
         text = format_game_message(game, header)
-        keyboard = create_team_finder_keyboard(game.id, game.link)
+        keyboard = create_team_finder_keyboard(game.id, get_user_facing_link(game.link))
         image_url = game.image
 
         # file_name = image_url.split("/")[-1] if image_url else None
@@ -309,7 +317,7 @@ async def back_to_main(callback_query: CallbackQuery, callback_data: GameRoleCal
     game = await game_dao.get(id=game_id)
     if not game:
         return f"Упс {game_id} уже не существует."
-    new_keyboard = create_team_finder_keyboard(game_id, game.link)
+    new_keyboard = create_team_finder_keyboard(game_id, get_user_facing_link(game.link))
 
     await callback_query.message.edit_reply_markup(reply_markup=new_keyboard)
 
@@ -374,7 +382,7 @@ async def handle_game_role_callback(callback_query: CallbackQuery, callback_data
 
     new_keyboard = create_team_search_menu_keyboard(game_id, is_searching=True, players_count=players_count,
                                                     teams_count=teams_count)
-    link_keyboard = create_only_link_keyboard(game.link)
+    link_keyboard = create_only_link_keyboard(get_user_facing_link(game.link))
 
     try:
         await bot.answer_callback_query(callback_query.id, text=response_text)
@@ -438,7 +446,7 @@ async def short_actives_games_command(message: Message):
     games_list = []
 
     for index, game in enumerate(all_upcoming_games, start=1):
-        game_link = game.link if game.link else "#"
+        game_link = get_user_facing_link(game.link) if game.link else "#"
         game_end_date = game.end_date.strftime('%d.%m.%Y %H:%M') if game.end_date else "Не указана"
 
         game_name_with_link = f'<a href="{game_link}">{escape_html(game.name)}</a>'
