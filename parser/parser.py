@@ -12,13 +12,13 @@ from .utils import extract_limit, download_image
 from logging_config import parser_logger
 
 GAMES_URLS = [
-    ("https://kovrov.en.cx/GameCalendar.aspx?status=Coming&type=Team&zone=Virtual", "team"),
-    ("https://kovrov.en.cx/GameCalendar.aspx?status=Coming&type=Single&zone=Virtual", "single")
+    ("https://kovrov.encounter.cx/GameCalendar.aspx?status=Coming&type=Team&zone=Virtual", "team"),
+    ("https://kovrov.encounter.cx/GameCalendar.aspx?status=Coming&type=Single&zone=Virtual", "single")
 ]
 
 ACTIVE_GAMES_URLS = [
-    ("https://arcticsearch.en.cx/GameCalendar.aspx?status=Active&type=Team&zone=Virtual", "team"),
-    ("https://arcticsearch.en.cx/GameCalendar.aspx?status=Active&type=Single&zone=Virtual", "single")
+    ("https://arcticsearch.encounter.cx/GameCalendar.aspx?status=Active&type=Team&zone=Virtual", "team"),
+    ("https://arcticsearch.encounter.cx/GameCalendar.aspx?status=Active&type=Single&zone=Virtual", "single")
 ]
 
 DEFAULT_HEADERS = {
