@@ -17,6 +17,13 @@ from messages.messages import format_game_message
 router = Router()
 
 
+def escape_html(text: str) -> str:
+    """Экранирует HTML спецсимволы для безопасной вставки в HTML."""
+    if not text:
+        return text
+    return text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+
 @router.message(CommandStart(), PrivateChatFilter())
 async def cmd_start(message: types.Message):
     if not message.from_user.username:
@@ -44,11 +51,11 @@ def split_games_list(games, max_length=4096):
         players = "Один игрок" if game.game_type == "single" else (
             game.max_players if game.max_players > 0 else "Не указано")
         game_text = (
-            f"<b>🎮 <a href='{game.link}'>{game.name}</a></b>\n"
+            f"<b>🎮 <a href='{game.link}'>{escape_html(game.name)}</a></b>\n"
             f"<b>📅 Начало:</b> {game.start_date.strftime('%d.%m.%Y %H:%M')}\n"
             f"<b>📅 Конец:</b> {game.end_date.strftime('%d.%m.%Y %H:%M') if game.end_date else 'Отсутствует'}\n"
-            f"<b>📝 Автор(ы):</b> {game.author}\n"
-            f"<b>🌐 Домен:</b> {game.domain}\n"
+            f"<b>📝 Автор(ы):</b> {escape_html(game.author)}\n"
+            f"<b>🌐 Домен:</b> {escape_html(game.domain)}\n"
             # f"👥 <b>Ограничение игроков</b>: {game.max_players if game.max_players > 0 else 'Не указано'}\n"
             f"👥 <b>Ограничение игроков</b>: {players}\n"
         )
@@ -434,13 +441,13 @@ async def short_actives_games_command(message: Message):
         game_link = game.link if game.link else "#"
         game_end_date = game.end_date.strftime('%d.%m.%Y %H:%M') if game.end_date else "Не указана"
 
-        game_name_with_link = f'<a href="{game_link}">{game.name}</a>'
+        game_name_with_link = f'<a href="{game_link}">{escape_html(game.name)}</a>'
         players = "Один игрок" if game.game_type == "single" else (
             game.max_players if game.max_players > 0 else "Не указано")
         game_info = f"""
 <b>{index}. {game_name_with_link}</b>
-<i>Игроков:</i> {players} 
-<i>Автор:</i> {game.author}
+<i>Игроков:</i> {players}
+<i>Автор:</i> {escape_html(game.author)}
 <i>Дата окончания:</i> {game_end_date}
 """
         games_list.append(game_info)
