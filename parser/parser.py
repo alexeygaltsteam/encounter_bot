@@ -77,7 +77,7 @@ async def parse_game_data(html: str, game_type: str) -> List[GameDate]:
 
         game_date = GameDate(
             id=row_data[1].split('/')[1],
-            domain=row_data[3],
+            domain=row_data[3].replace('.en.cx', '.encounter.cx'),
             start_date=row_data[4],
             name=row_data[5],
             author=re.sub(r'\s+', '', row_data[6]),

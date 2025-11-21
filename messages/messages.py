@@ -12,6 +12,13 @@ from logging_config import bot_logger
 from settings import  CHATS_ID
 
 
+def get_user_facing_link(link: str) -> str:
+    """Заменяет .encounter.cx на .en.cx для отображения пользователю."""
+    if not link:
+        return link
+    return link.replace('.encounter.cx', '.en.cx')
+
+
 # def format_game_message(game: GameDate, header: str) -> str:
 #     """Формирует текст сообщения"""
 #     return f"""
@@ -32,7 +39,7 @@ def format_game_message(game: GameDate, header: str) -> str:
         price = "Не указано"
 
     return f"""{header}
-<b>🎮 <a href='{game.link}'>{game.name}</a></b>\n"
+<b>🎮 <a href='{get_user_facing_link(game.link)}'>{game.name}</a></b>\n"
 <b>🕒 Начало:</b> {game.start_date.strftime('%d.%m.%Y %H:%M:%S')}
 <b>🕒 Конец:</b> {game.end_date.strftime('%d.%m.%Y %H:%M:%S') if game.end_date else "Отсутствует"}
 <b>📝 Автор(ы):</b> {game.author}
@@ -48,7 +55,7 @@ def format_annonsed_game_message(game: GameDate, header: str) -> str:
     players = "Один игрок" if game.game_type == "single" else (
         game.max_players if game.max_players > 0 else "Не указано")
     return f"""{header}
-<b>🎮 <a href='{game.link}'>{game.name}</a></b>\n"
+<b>🎮 <a href='{get_user_facing_link(game.link)}'>{game.name}</a></b>\n"
 <b>📅 Начало:</b> {game.start_date.strftime('%d.%m.%Y %H:%M:%S')}
 <b>📆 Конец:</b> {game.end_date.strftime('%d.%m.%Y %H:%M:%S') if game.end_date else "Отсутствует"}
 <b>📝 Автор(ы):</b> {game.author}
@@ -60,7 +67,7 @@ def format_annonsed_game_message(game: GameDate, header: str) -> str:
 def format_game_message_with_change(game: GameDate, header: str) -> str:
     """Формирует текст сообщения с информацией об игре"""
     return f"""{header}
-<b>🎮 <a href='{game.link}'>{game.name}</a></b>\n"
+<b>🎮 <a href='{get_user_facing_link(game.link)}'>{game.name}</a></b>\n"
 <b>📝 Автор(ы):</b> {game.author}
 <b>🌐 Домен:</b> {game.domain}
 """
@@ -83,7 +90,7 @@ async def send_game_message(bot, game, message_type: str):
         return
 
     message = format_annonsed_game_message(game, header)
-    keyboard = default_game_keyboard(game.link, game.id)
+    keyboard = default_game_keyboard(get_user_facing_link(game.link), game.id)
 
     try:
         # await bot.send_message(settings.CHAT_ID, message, parse_mode=ParseMode.HTML, reply_markup=keyboard)
@@ -183,7 +190,7 @@ async def send_game_message_date_change(
             └ 🟢 <b>Новый конец:</b> {new_end_date.strftime('%d.%m.%Y %H:%M:%S')}
         """
 
-    keyboard = default_game_keyboard(game.link, game.id)
+    keyboard = default_game_keyboard(get_user_facing_link(game.link), game.id)
 
     try:
         # await bot.send_message(settings.CHAT_ID, message, parse_mode=ParseMode.HTML, reply_markup=keyboard)
