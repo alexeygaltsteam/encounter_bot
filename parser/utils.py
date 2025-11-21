@@ -35,9 +35,9 @@ async def download_image(image_url, game_id, save_dir="images"):
                     parser_logger.info(f"✅ Изображение сохранено: {file_path}")
                     return file_path
                 else:
-                    parser_logger.info(f"❌ Ошибка загрузки: {response.status}")
+                    parser_logger.info(f"❌ Ошибка загрузки: HTTP {response.status} для {image_url}")
                     return None
     except aiohttp.ClientError as e:
-        parser_logger.info(f"⚠️ Ошибка при загрузке: {e}")
+        parser_logger.info(f"⚠️ Ошибка при загрузке {image_url}: {e}")
         return None
 

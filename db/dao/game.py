@@ -38,7 +38,7 @@ class GameDateDAO(BaseDAO):
                             download_result = await download_image(value, game_id=existing_instance.id)
 
                             if download_result is not None:
-                                setattr(existing_instance, key, value)
+                                setattr(existing_instance, key, download_result)
                                 parser_logger.info(f"Изображение изменено для : {kwargs.get('id')}")
                             else:
                                 setattr(existing_instance, key, None)

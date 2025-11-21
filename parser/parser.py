@@ -247,9 +247,8 @@ async def parsing_active_games() -> None:
             return
 
         games_to_complete = active_games_from_db - active_games_id
-        if len(games_to_complete) > 4:
-            parser_logger.info(f"Перевод больше чем 4 игр в статус COMPLETED невозможен.")
-            return
+        if len(games_to_complete) > 10:
+            parser_logger.warning(f"⚠️ Подозрительно много игр для COMPLETED: {len(games_to_complete)}. Проверьте парсер!")
         if games_to_complete:
             parser_logger.info(f"Переводим в COMPLETED {len(games_to_complete)} игр: {games_to_complete}")
             await game_dao.session.execute(
@@ -287,9 +286,8 @@ async def parsing_active_games() -> None:
         games_to_archive = []
 
         missing_upcoming_games = upcoming_games_from_db - upcoming_games_id
-        if len(missing_upcoming_games) > 4:
-            parser_logger.info(f"Перевод больше чем 4 игр в статус ACTIVE невозможен.")
-            return
+        if len(missing_upcoming_games) > 10:
+            parser_logger.warning(f"⚠️ Подозрительно много игр для ACTIVE: {len(missing_upcoming_games)}. Проверьте парсер!")
         if missing_upcoming_games:
             for game_id in missing_upcoming_games:
                 game = next((g for g in active_game_data if g.id == game_id), None)
