@@ -30,7 +30,12 @@ async def on_startup(dp):
     scheduler.add_job(run_parsing, CronTrigger(minute="15,45"))
     scheduler.add_job(parsing_active_games, CronTrigger(minute="55"))
     scheduler.add_job(check_and_send_messages, CronTrigger(minute="20,50"), args=[game_dao, bot])
-    # scheduler.add_job(update_game_states, CronTrigger(minute="5,35"))
+    scheduler.add_job(update_game_states, CronTrigger(minute="5,35"))
+
+    # Однократное обновление статусов для исправления текущих данных в БД
+    bot_logger.info("Запуск однократного обновления статусов игр...")
+    await update_game_states()
+    bot_logger.info("Обновление статусов завершено. После первого запуска эти строки можно удалить.")
 
     scheduler.start()
     # await run_parsing()
