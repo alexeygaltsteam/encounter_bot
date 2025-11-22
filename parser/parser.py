@@ -253,21 +253,21 @@ async def parsing_active_games() -> None:
             parser_logger.warning(f"⚠️ Подозрительно много игр для COMPLETED: {len(games_to_complete)}. Проверьте парсер!")
         if games_to_complete:
             parser_logger.info(f"Переводим в COMPLETED {len(games_to_complete)} игр: {games_to_complete}")
-            async with game_dao.session_factory() as session:
-                await session.execute(
+            async with game_dao.session_factory() as db_session:
+                await db_session.execute(
                     update(GameModel)
                     .where(GameModel.id.in_(games_to_complete))
                     .values(state=GameState.COMPLETED.value)
                 )
                 parser_logger.info("Статусы игр успешно обновлены.")
 
-                await session.execute(
+                await db_session.execute(
                     delete(UserGameSubscription).where(UserGameSubscription.game_id.in_(games_to_complete))
                 )
-                await session.execute(
+                await db_session.execute(
                     delete(UserGameRole).where(UserGameRole.game_id.in_(games_to_complete))
                 )
-                await session.commit()
+                await db_session.commit()
         else:
             parser_logger.info("Все активные игры актуальны, обновление не требуется.")
 
@@ -296,8 +296,8 @@ async def parsing_active_games() -> None:
                 game = next((g for g in active_game_data if g.id == game_id), None)
                 if game:
                     parser_logger.info(f"Обновляем игру {game_id}, переводим в ACTIVE и обновляем поля")
-                    async with game_dao.session_factory() as session:
-                        existing = await session.get(GameModel, game_id)
+                    async with game_dao.session_factory() as db_session:
+                        existing = await db_session.get(GameModel, game_id)
                         current_image_path = existing.image if existing else None
 
                         local_image = None
@@ -305,7 +305,7 @@ async def parsing_active_games() -> None:
                             local_image = await download_image(game_id=game.id, image_url=game.image)
                         image_to_store = local_image if local_image is not None else current_image_path
 
-                        await session.execute(
+                        await db_session.execute(
                             update(GameModel)
                             .where(GameModel.id == game_id)
                             .values(name=game.name,
@@ -315,7 +315,7 @@ async def parsing_active_games() -> None:
                                     image_url=game.image,
                                     state=GameState.ACTIVE.value)
                         )
-                        await session.commit()
+                        await db_session.commit()
                         parser_logger.info(f"{game_id} обновлена")
 
                 else:
@@ -324,13 +324,13 @@ async def parsing_active_games() -> None:
         if len(games_to_archive) <= 5:
             for game_id in games_to_archive:
                 parser_logger.info(f"Архивируем игру {game_id}")
-                async with game_dao.session_factory() as session:
-                    await session.execute(
+                async with game_dao.session_factory() as db_session:
+                    await db_session.execute(
                         update(GameModel)
                         .where(GameModel.id == game_id)
                         .values(state=GameState.ARCHIVED.value)
                     )
-                    await session.commit()
+                    await db_session.commit()
             parser_logger.info(f"{games_to_archive} заархивированны.")
 
         if not games_to_archive:
