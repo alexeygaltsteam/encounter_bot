@@ -60,10 +60,23 @@ class GameDate(BaseModel):
         """Метод для установки end_date с преобразованием."""
         if value is None:
             self.end_date = None
+        elif value == EMPTY_FIELD:
+            from logging_config import parser_logger
+            parser_logger.warning(
+                f"Игра ID={self.id}: end_date не найдено на странице (получено '{EMPTY_FIELD}'). "
+                f"Ссылка: {self.link}"
+            )
+            self.end_date = None
         else:
             try:
                 self.end_date = datetime.strptime(value, "%d.%m.%Y %H:%M:%S")
-            except ValueError:
+            except ValueError as e:
+                from logging_config import parser_logger
+                parser_logger.error(
+                    f"Игра ID={self.id}: ошибка парсинга end_date. "
+                    f"Значение: '{value}', ошибка: {e}. Ссылка: {self.link}"
+                )
+                self.end_date = None
                 return None
 
     @field_validator('game_type')

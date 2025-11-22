@@ -176,6 +176,8 @@ async def gather_additional_game_data(session: aiohttp.ClientSession, game_data:
 
     tasks_for_additional_data = []
     for game, html in zip(game_data, html_results):
+        if html is None:
+            parser_logger.warning(f"Не удалось загрузить HTML для игры ID={game.id}, ссылка: {game.link}")
         tasks_for_additional_data.append(parse_additional_game_info(html))
 
     additional_data_results = await asyncio.gather(*tasks_for_additional_data)
@@ -200,7 +202,7 @@ async def run_parsing() -> None:
             game_data = await fetch_and_parse_games(session, url, game_type)
             all_game_data.extend(game_data)
 
-            await gather_additional_game_data(session, all_game_data)
+        await gather_additional_game_data(session, all_game_data)
 
         parser_logger.info(f"Всего игр загружено: {len(all_game_data)}.")
 
