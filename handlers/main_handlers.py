@@ -224,7 +224,7 @@ async def handle_subscribe_callback(callback_query: CallbackQuery, callback_data
                 reply_markup=new_keyboard
             )
         except Exception as e:
-            print(f"Ошибка при обновлении кнопки: {e}")
+            bot_logger.error(f"Ошибка при обновлении кнопки подписки для игры {game_id}: {e}")
 
     if action == "unsubscribe":
         message = await user_subs_dao.remove_user_from_subscription(user_id=user_id, game_id=game_id)
@@ -240,17 +240,12 @@ async def handle_subscribe_callback(callback_query: CallbackQuery, callback_data
             await bot.delete_message(chat_id=callback_query.message.chat.id,
                                      message_id=callback_query.message.message_id)
         except Exception as e:
-            print(f"Ошибка при удалении сообщения: {e}")
+            bot_logger.error(f"Ошибка при удалении/отправке сообщения после отписки от игры {game_id}: {e}")
 
     try:
-        # await bot.a(user_id, message)
         await bot.answer_callback_query(callback_query.id, text=message)
-        #     await bot.answer_callback_query(callback_query.id, text="Мы отправили вам сообщение!")
-        # except TelegramForbiddenError:
-        #     await bot.answer_callback_query(callback_query.id, text="Мы не смогли отправиль личное сообщение")
-
     except Exception as e:
-        print(f"Ошибка при отправке личного сообщения: {e}")
+        bot_logger.error(f"Ошибка при ответе на callback для игры {game_id}: {e}")
 
 
 @router.message(Command(commands='subs'), PrivateChatFilter())
@@ -352,7 +347,7 @@ async def handle_game_role_callback(callback_query: CallbackQuery, callback_data
                                                 message_id=callback_query.message.message_id,
                                                 reply_markup=new_keyboard)
         except Exception as e:
-            print(f"Ошибка при отправке сообщения в чат: {e}")
+            bot_logger.error(f"Ошибка при обработке отмены поиска для игры {game_id}: {e}")
         return
 
     role = "Команда" if action == "find_player" else "Игрок"
@@ -392,7 +387,7 @@ async def handle_game_role_callback(callback_query: CallbackQuery, callback_data
                                             message_id=callback_query.message.message_id,
                                             reply_markup=new_keyboard)
     except Exception as e:
-        print(f"Ошибка при отправке сообщения в чат: {e}")
+        bot_logger.error(f"Ошибка при отправке сообщений/клавиатур для игры {game_id}: {e}")
 
 
 @router.callback_query(SubscribeFromChannelCallbackData.filter())
@@ -425,7 +420,7 @@ async def handle_subscribe_from_channel_callback(callback_query: CallbackQuery,
         except TelegramForbiddenError:
             await bot.answer_callback_query(callback_query.id, text="Мы не смогли отправиль личное сообщение")
         except Exception as e:
-            print(f"Ошибка при отправке личного сообщения: {e}")
+            bot_logger.error(f"Ошибка при отправке личного сообщения о подписке на игру {game_id}: {e}")
 
 
 @router.callback_query(F.data == "show_subscriptions")

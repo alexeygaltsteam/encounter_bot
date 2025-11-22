@@ -21,7 +21,7 @@ class UserDAO(BaseDAO):
     #         return None
 
     async def get_user_subscribed_games(self, telegram_id: int):
-        async with self.session as session:
+        async with self.session_factory() as session:
             result = await session.execute(
                 select(GameDate)
                 .join(UserGameSubscription, UserGameSubscription.game_id == GameDate.id)

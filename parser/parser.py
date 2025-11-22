@@ -219,7 +219,7 @@ async def run_parsing() -> None:
         for game in all_game_data:
             await game_dao.create(**game.model_dump())
 
-        parser_logger.info(f"Парсер завершил работу.")
+        parser_logger.info(f"Парсер завершил работу. Создано/обновлено записей: {len(all_game_data)}.")
 
 
 async def parsing_active_games() -> None:
@@ -243,7 +243,9 @@ async def parsing_active_games() -> None:
         await gather_additional_game_data(session, active_game_data)
         active_games_id = {game.id for game in active_game_data}
         if not active_games_id:
-            parser_logger.info(f"Парсинг не прошел. Кол-во активных игр: {len(active_games_id)}")
+            parser_logger.info(
+                f"Парсинг активных игр вернул 0 результатов. URL-список: {[u for u,_ in ACTIVE_GAMES_URLS]}"
+            )
             return
 
         games_to_complete = active_games_from_db - active_games_id
@@ -251,20 +253,21 @@ async def parsing_active_games() -> None:
             parser_logger.warning(f"⚠️ Подозрительно много игр для COMPLETED: {len(games_to_complete)}. Проверьте парсер!")
         if games_to_complete:
             parser_logger.info(f"Переводим в COMPLETED {len(games_to_complete)} игр: {games_to_complete}")
-            await game_dao.session.execute(
-                update(GameModel)
-                .where(GameModel.id.in_(games_to_complete))
-                .values(state=GameState.COMPLETED.value)
-            )
-            parser_logger.info("Статусы игр успешно обновлены.")
+            async with game_dao.session_factory() as session:
+                await session.execute(
+                    update(GameModel)
+                    .where(GameModel.id.in_(games_to_complete))
+                    .values(state=GameState.COMPLETED.value)
+                )
+                parser_logger.info("Статусы игр успешно обновлены.")
 
-            await game_dao.session.execute(
-                delete(UserGameSubscription).where(UserGameSubscription.game_id.in_(games_to_complete))
-            )
-            await game_dao.session.execute(
-                delete(UserGameRole).where(UserGameRole.game_id.in_(games_to_complete))
-            )
-            await game_dao.session.commit()
+                await session.execute(
+                    delete(UserGameSubscription).where(UserGameSubscription.game_id.in_(games_to_complete))
+                )
+                await session.execute(
+                    delete(UserGameRole).where(UserGameRole.game_id.in_(games_to_complete))
+                )
+                await session.commit()
         else:
             parser_logger.info("Все активные игры актуальны, обновление не требуется.")
 
@@ -293,18 +296,27 @@ async def parsing_active_games() -> None:
                 game = next((g for g in active_game_data if g.id == game_id), None)
                 if game:
                     parser_logger.info(f"Обновляем игру {game_id}, переводим в ACTIVE и обновляем поля")
-                    await game_dao.session.execute(
-                        update(GameModel)
-                        .where(GameModel.id == game_id)
-                        .values(name=game.name,
-                                start_date=game.start_date,
-                                end_date=game.end_date,
-                                image=game.image,
-                                state=GameState.ACTIVE.value)
-                    )
-                    await download_image(game_id=game.id, image_url=game.image)
-                    await game_dao.session.commit()
-                    parser_logger.info(f"{game_id} обновлена")
+                    async with game_dao.session_factory() as session:
+                        existing = await session.get(GameModel, game_id)
+                        current_image_path = existing.image if existing else None
+
+                        local_image = None
+                        if game.image and isinstance(game.image, str) and game.image.startswith(("http://", "https://")):
+                            local_image = await download_image(game_id=game.id, image_url=game.image)
+                        image_to_store = local_image if local_image is not None else current_image_path
+
+                        await session.execute(
+                            update(GameModel)
+                            .where(GameModel.id == game_id)
+                            .values(name=game.name,
+                                    start_date=game.start_date,
+                                    end_date=game.end_date,
+                                    image=image_to_store,
+                                    image_url=game.image,
+                                    state=GameState.ACTIVE.value)
+                        )
+                        await session.commit()
+                        parser_logger.info(f"{game_id} обновлена")
 
                 else:
                     games_to_archive.append(game_id)
@@ -312,16 +324,24 @@ async def parsing_active_games() -> None:
         if len(games_to_archive) <= 5:
             for game_id in games_to_archive:
                 parser_logger.info(f"Архивируем игру {game_id}")
-                await game_dao.session.execute(
-                    update(GameModel)
-                    .where(GameModel.id == game_id)
-                    .values(state=GameState.ARCHIVED.value)
-                )
-            await game_dao.session.commit()
+                async with game_dao.session_factory() as session:
+                    await session.execute(
+                        update(GameModel)
+                        .where(GameModel.id == game_id)
+                        .values(state=GameState.ARCHIVED.value)
+                    )
+                    await session.commit()
             parser_logger.info(f"{games_to_archive} заархивированны.")
 
         if not games_to_archive:
             parser_logger.info("Все предстоящие игры актуальны, обновление не требуется.")
+
+        parser_logger.info(
+            f"Итог обновления активных/предстоящих игр: active_from_db={len(active_games_from_db)}, "
+            f"active_parsed={len(active_games_id)}, completed={len(games_to_complete)}, "
+            f"archived={len(games_to_archive)}, upcoming_from_db={len(upcoming_games_from_db)}, "
+            f"upcoming_parsed={len(upcoming_games_id)}"
+        )
 
 
 if __name__ == "__main__":

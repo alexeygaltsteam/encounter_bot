@@ -243,8 +243,9 @@ async def send_announcement_messages(game_dao, bot):
             game.is_announcement_sent = True
             bot_logger.info(f"Sent announcement for game {game.id}: {game.name}")
 
-            await game_dao.session.merge(game)
-            await game_dao.session.commit()
+            async with game_dao.session_factory() as session:
+                await session.merge(game)
+                await session.commit()
 
             bot_logger.info(f"Game {game.id} updated after sending announcement.")
 
@@ -269,7 +270,8 @@ async def send_start_messages(game_dao, bot):
             game.is_start_message_sent = True
             bot_logger.info(f"Sent start message for game {game.id}: {game.name}")
 
-            await game_dao.session.merge(game)
-            await game_dao.session.commit()
+            async with game_dao.session_factory() as session:
+                await session.merge(game)
+                await session.commit()
 
             bot_logger.info(f"Game {game.id} updated after sending start message.")

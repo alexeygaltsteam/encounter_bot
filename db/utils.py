@@ -21,29 +21,35 @@ async def update_game_states():
     try:
 
         games = await game_dao.get_all()
+        updated_counts = {GameState.UPCOMING: 0, GameState.ACTIVE: 0, GameState.COMPLETED: 0}
 
         moscow_tz = pytz.timezone('Europe/Moscow')
         now = datetime.now(moscow_tz).replace(tzinfo=None)
 
-        for game in games:
-            game_start_date = game.start_date.replace(tzinfo=None)
+        async with game_dao.session_factory() as session:
+            for game in games:
+                game_start_date = game.start_date.replace(tzinfo=None)
 
-            if game_start_date > now:
-                new_state = GameState.UPCOMING
-            elif game_start_date <= now and (game.end_date is None or game.end_date.replace(tzinfo=None) > now):
-                new_state = GameState.ACTIVE
-            else:
-                new_state = GameState.COMPLETED
+                if game_start_date > now:
+                    new_state = GameState.UPCOMING
+                elif game_start_date <= now and (game.end_date is None or game.end_date.replace(tzinfo=None) > now):
+                    new_state = GameState.ACTIVE
+                else:
+                    new_state = GameState.COMPLETED
 
-            if game.state != new_state.value:
-                bot_logger.info(f"Updating game {game.id} from {game.state} to {new_state}.")
-                game.state = new_state.value
-                await game_dao.session.merge(game)
+                if game.state != new_state.value:
+                    bot_logger.info(f"Updating game {game.id} from {game.state} to {new_state}.")
+                    game.state = new_state.value
+                    await session.merge(game)
+                    updated_counts[new_state] += 1
 
-        await game_dao.session.flush()
-        await game_dao.session.commit()
-        await game_dao.session.close()
-        bot_logger.info("Game state update process completed successfully.")
+            await session.commit()
+        bot_logger.info(
+            "Game state update process completed successfully. "
+            f"Changed: UPCOMING={updated_counts[GameState.UPCOMING]}, "
+            f"ACTIVE={updated_counts[GameState.ACTIVE]}, "
+            f"COMPLETED={updated_counts[GameState.COMPLETED]}"
+        )
     except Exception as e:
         bot_logger.error(f"Error during game state update: {e}")
 
