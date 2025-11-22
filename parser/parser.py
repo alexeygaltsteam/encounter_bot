@@ -250,6 +250,16 @@ async def parsing_active_games() -> None:
             )
             return
 
+        # Обновляем поля для игр, которые остаются активными
+        still_active_games = active_games_from_db & active_games_id
+        if still_active_games:
+            parser_logger.info(f"Обновляем поля для {len(still_active_games)} активных игр")
+            for game_id in still_active_games:
+                game = next((g for g in active_game_data if g.id == game_id), None)
+                if game:
+                    await game_dao.create(**game.model_dump())
+            parser_logger.info(f"Обновлено полей для {len(still_active_games)} активных игр")
+
         games_to_complete = active_games_from_db - active_games_id
         if len(games_to_complete) > 10:
             parser_logger.warning(f"⚠️ Подозрительно много игр для COMPLETED: {len(games_to_complete)}. Проверьте парсер!")
