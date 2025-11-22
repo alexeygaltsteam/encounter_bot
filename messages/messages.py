@@ -169,25 +169,33 @@ async def send_game_message_date_change(
     #         <b>Новый конец:</b> {new_end_date.strftime('%d.%m.%Y %H:%M:%S')}
     #         """
     if message_type == "reschedule_start":
+        old_start_str = old_start_date.strftime('%d.%m.%Y %H:%M:%S') if old_start_date else "не указана"
+        new_start_str = new_start_date.strftime('%d.%m.%Y %H:%M:%S') if new_start_date else "не указана"
         message += f"""
             <i>⚠️ Внимание! Дата начала игры изменена.</i>
-            ├ <b>Предыдущая дата начала:</b> {old_start_date.strftime('%d.%m.%Y %H:%M:%S')}
-            └ 🟢 <b>Новое начало:</b> {new_start_date.strftime('%d.%m.%Y %H:%M:%S')}
+            ├ <b>Предыдущая дата начала:</b> {old_start_str}
+            └ 🟢 <b>Новое начало:</b> {new_start_str}
         """
     elif message_type == "reschedule_end":
+        old_end_str = old_end_date.strftime('%d.%m.%Y %H:%M:%S') if old_end_date else "не указана"
+        new_end_str = new_end_date.strftime('%d.%m.%Y %H:%M:%S') if new_end_date else "не указана"
         message += f"""
             <i>⚠️ Внимание! Дата окончания игры изменена.</i>
-            ├ <b>Предыдущая дата конца:</b> {old_end_date.strftime('%d.%m.%Y %H:%M:%S')}
-            └ 🟢 <b>Новый конец:</b> {new_end_date.strftime('%d.%m.%Y %H:%M:%S')}
+            ├ <b>Предыдущая дата конца:</b> {old_end_str}
+            └ 🟢 <b>Новый конец:</b> {new_end_str}
         """
     elif message_type == "both_reschedule":
+        old_start_str = old_start_date.strftime('%d.%m.%Y %H:%M:%S') if old_start_date else "не указана"
+        old_end_str = old_end_date.strftime('%d.%m.%Y %H:%M:%S') if old_end_date else "не указана"
+        new_start_str = new_start_date.strftime('%d.%m.%Y %H:%M:%S') if new_start_date else "не указана"
+        new_end_str = new_end_date.strftime('%d.%m.%Y %H:%M:%S') if new_end_date else "не указана"
         message += f"""
             <i>⚠️ Внимание! Изменены даты начала и окончания игры.</i>
-            ├ <b>Предыдущая дата начала:</b> {old_start_date.strftime('%d.%m.%Y %H:%M:%S')}
-            ├ <b>Предыдущая дата конца:</b> {old_end_date.strftime('%d.%m.%Y %H:%M:%S')}
+            ├ <b>Предыдущая дата начала:</b> {old_start_str}
+            ├ <b>Предыдущая дата конца:</b> {old_end_str}
 
-            └ 🟢 <b>Новое начало:</b> {new_start_date.strftime('%d.%m.%Y %H:%M:%S')}
-            └ 🟢 <b>Новый конец:</b> {new_end_date.strftime('%d.%m.%Y %H:%M:%S')}
+            └ 🟢 <b>Новое начало:</b> {new_start_str}
+            └ 🟢 <b>Новый конец:</b> {new_end_str}
         """
 
     keyboard = default_game_keyboard(get_user_facing_link(game.link), game.id)
@@ -235,8 +243,9 @@ async def send_announcement_messages(game_dao, bot):
             game.is_announcement_sent = True
             bot_logger.info(f"Sent announcement for game {game.id}: {game.name}")
 
-            await game_dao.session.merge(game)
-            await game_dao.session.commit()
+            async with game_dao.session_factory() as session:
+                await session.merge(game)
+                await session.commit()
 
             bot_logger.info(f"Game {game.id} updated after sending announcement.")
 
@@ -261,7 +270,8 @@ async def send_start_messages(game_dao, bot):
             game.is_start_message_sent = True
             bot_logger.info(f"Sent start message for game {game.id}: {game.name}")
 
-            await game_dao.session.merge(game)
-            await game_dao.session.commit()
+            async with game_dao.session_factory() as session:
+                await session.merge(game)
+                await session.commit()
 
             bot_logger.info(f"Game {game.id} updated after sending start message.")

@@ -14,8 +14,9 @@ async def check_and_send_messages(game_dao, bot):
     game.name = "asd"
     print(game.id)
     print(game)
-    game = await game_dao.session.merge(game)
-    await game_dao.session.commit()
+    async with game_dao.session_factory() as session:
+        game = await session.merge(game)
+        await session.commit()
 
 
     # Отправляем сообщение для каждой игры
