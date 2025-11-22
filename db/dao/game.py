@@ -33,21 +33,23 @@ class GameDateDAO(BaseDAO):
             for key, value in kwargs.items():
                 if hasattr(existing_instance, key) and key not in ('id', 'start_date', 'end_date'):
                     if key == "image" and isinstance(value, str) and value.startswith("http"):
-                        current_image = getattr(existing_instance, key, None)
-                        if current_image != value:
+                        # Сравниваем с оригинальным URL, а не с локальным путём
+                        current_image_url = getattr(existing_instance, 'image_url', None)
+                        if current_image_url != value:
                             download_result = await download_image(value, game_id=existing_instance.id)
 
                             if download_result is not None:
-                                setattr(existing_instance, key, download_result)
+                                # Сохраняем локальный путь в image и оригинальный URL в image_url
+                                existing_instance.image = download_result
+                                existing_instance.image_url = value
                                 parser_logger.info(f"Изображение изменено для : {kwargs.get('id')}")
+                                parser_logger.info(f"  Старый URL: {current_image_url}")
+                                parser_logger.info(f"  Новый URL: {value}")
                             else:
-                                setattr(existing_instance, key, None)
+                                existing_instance.image = None
+                                existing_instance.image_url = value
                                 parser_logger.info(
                                     f"❌ Изображение не было загружено, ставим None для : {kwargs.get('id')}")
-
-                            # await download_image(value)
-                            # setattr(existing_instance, key, value)
-                            # parser_logger.info(f"Изображение изменено для : {kwargs.get('id')}")
                     else:
                         setattr(existing_instance, key, value)
 
@@ -87,16 +89,21 @@ class GameDateDAO(BaseDAO):
             await self.session.commit()
 
         else:
+            # Сохраняем оригинальный URL изображения
+            original_image_url = kwargs.get('image')
             instance = self.__model__(**kwargs)
             self.session.add(instance)
             parser_logger.info(f"Создан новый объект: {kwargs.get('id')}")
-            # await download_image(image_url=instance.image)
-            download_result = await download_image(image_url=instance.image, game_id=instance.id)
-            if download_result is None:
-                parser_logger.info(f"❌ Не удалось загрузить изображение для {kwargs.get('id')}. Устанавливаем None.")
-                instance.image = None
-            else:
-                instance.image = download_result
+
+            # Скачиваем изображение, если URL предоставлен
+            if original_image_url and isinstance(original_image_url, str) and original_image_url.startswith("http"):
+                download_result = await download_image(image_url=original_image_url, game_id=instance.id)
+                if download_result is None:
+                    parser_logger.info(f"❌ Не удалось загрузить изображение для {kwargs.get('id')}. Устанавливаем None.")
+                    instance.image = None
+                else:
+                    instance.image = download_result
+                instance.image_url = original_image_url
             await self.session.commit()
 
         await self.session.close()
