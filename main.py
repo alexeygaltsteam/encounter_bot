@@ -5,7 +5,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from db.utils import update_game_states
 from keyboards.game_keyboards import set_main_menu
-from loader import bot, dp, db, game_dao
+from loader import bot, dp, db, game_dao, user_dao, user_subs_dao
 from logging_config import bot_logger
 from messages.scheduler_messages import check_and_send_messages
 from parser.parser import run_parsing, parsing_active_games
@@ -29,7 +29,7 @@ async def on_startup(dp):
 
     scheduler.add_job(run_parsing, CronTrigger(minute="15,45"))
     scheduler.add_job(parsing_active_games, CronTrigger(minute="55"))
-    scheduler.add_job(check_and_send_messages, CronTrigger(minute="20,50"), args=[game_dao, bot])
+    scheduler.add_job(check_and_send_messages, CronTrigger(minute="20,50"), args=[game_dao, user_subs_dao, user_dao, bot])
     scheduler.add_job(update_game_states, CronTrigger(minute="5,35"))
 
     scheduler.start()

@@ -4,10 +4,11 @@ from datetime import datetime, timedelta
 import pytz
 from aiogram.enums import ParseMode
 from aiogram.types import FSInputFile
+from aiogram.exceptions import TelegramForbiddenError
 
 from db.models import GameDate
-from keyboards.constants import GAME_ANNOUNCEMENT, GAME_START, GAME_DATE_CHANGE
-from keyboards.game_keyboards import default_game_keyboard
+from keyboards.constants import GAME_ANNOUNCEMENT, GAME_START, GAME_DATE_CHANGE, GAME_EQUATOR, GAME_2DAYS_BEFORE_END, GAME_STARTED_PERSONAL
+from keyboards.game_keyboards import default_game_keyboard, subscriber_notification_keyboard
 from logging_config import bot_logger
 from settings import  CHATS_ID
 
@@ -281,3 +282,76 @@ async def send_start_messages(game_dao, bot):
                 await session.commit()
 
             bot_logger.info(f"Game {game.id} updated after sending start message.")
+
+
+def format_subscriber_notification_message(game: GameDate, notification_type: str) -> str:
+    """Форматирует сообщение подписчику"""
+    moscow_tz = pytz.timezone('Europe/Moscow')
+    now = datetime.now(moscow_tz).replace(tzinfo=None)
+
+    # Заголовок
+    headers = {
+        "equator": GAME_EQUATOR,
+        "2days_before_end": GAME_2DAYS_BEFORE_END,
+        "game_started": GAME_STARTED_PERSONAL
+    }
+    header = headers.get(notification_type, "📢 Уведомление")
+
+    # Расчет времени до конца
+    time_left = game.end_date - now if game.end_date else None
+    if time_left:
+        days = time_left.days
+        hours = time_left.seconds // 3600
+        time_left_str = f"{days} дн. {hours} ч." if days > 0 else f"{hours} ч."
+    else:
+        time_left_str = "Неизвестно"
+
+    return f"""{header}
+
+<b>🎮 <a href='{get_user_facing_link(game.link)}'>{game.name}</a></b>
+
+⏰ <b>До окончания:</b> {time_left_str}
+📆 <b>Конец:</b> {game.end_date.strftime('%d.%m.%Y %H:%M:%S') if game.end_date else "Отсутствует"}
+<b>📝 Автор(ы):</b> {game.author}
+<b>🌐 Домен:</b> {game.domain}
+"""
+
+
+async def send_subscriber_notification(
+    bot,
+    user_telegram_id: int,
+    user_internal_id: int,
+    game: GameDate,
+    notification_type: str,
+    user_dao
+) -> bool:
+    """Отправляет личное уведомление подписчику. Возвращает True если успешно."""
+    try:
+        file_name = str(game.id) + '.' + game.image.split('.')[-1] if game.image else None
+        photo_path = Path(f"images/{file_name}").resolve() if file_name else None
+
+        if not photo_path or not photo_path.exists() or not photo_path.is_file():
+            photo_path = Path("images/DEFAULT.jpg").resolve()
+
+        message = format_subscriber_notification_message(game, notification_type)
+        keyboard = subscriber_notification_keyboard(game.id)
+
+        await bot.send_photo(
+            chat_id=user_telegram_id,
+            photo=FSInputFile(str(photo_path)),
+            caption=message,
+            parse_mode=ParseMode.HTML,
+            reply_markup=keyboard
+        )
+
+        bot_logger.info(f"✅ Уведомление ({notification_type}) → user_id={user_internal_id} (tg={user_telegram_id}), game={game.id}")
+        return True
+
+    except TelegramForbiddenError:
+        await user_dao.set_bot_blocked(user_telegram_id, True)
+        bot_logger.warning(f"⚠️ User {user_telegram_id} заблокировал бота → bot_blocked=True")
+        return False
+
+    except Exception as e:
+        bot_logger.error(f"❌ Ошибка отправки → user {user_telegram_id}: {e}")
+        return False

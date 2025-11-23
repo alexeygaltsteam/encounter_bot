@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import joinedload
 
 from db.dao.base import BaseDAO
@@ -29,4 +29,13 @@ class UserDAO(BaseDAO):
                 .filter(User.telegram_id == telegram_id)
             )
             return result.scalars().all()
+
+    async def set_bot_blocked(self, telegram_id: int, blocked: bool) -> None:
+        """Устанавливает флаг bot_blocked для пользователя"""
+        async with self.session_factory() as session:
+            stmt = update(User).where(
+                User.telegram_id == telegram_id
+            ).values(bot_blocked=blocked)
+            await session.execute(stmt)
+            await session.commit()
 
