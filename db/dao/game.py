@@ -57,6 +57,16 @@ class GameDateDAO(BaseDAO):
                 session.add(existing_instance)
                 if start_date_updated or end_date_updated:
                     parser_logger.info(f"Объект обновлен: {kwargs.get('id')}")
+
+                    # Сбрасываем флаги уведомлений подписчиков при изменении дат
+                    from db.dao.subs import UserGameSubscriptionDAO
+                    subs_dao = UserGameSubscriptionDAO(self.session_factory)
+                    await subs_dao.reset_notification_flags_for_game(existing_instance.id)
+                    parser_logger.info(
+                        f"🔄 Сброшены флаги уведомлений подписчиков для игры {existing_instance.id} "
+                        f"из-за изменения дат"
+                    )
+
                     if existing_instance.is_announcement_sent:
                         if start_date_updated and end_date_updated:
                             await send_game_message_date_change(

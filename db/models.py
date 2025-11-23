@@ -107,6 +107,11 @@ class UserGameSubscription(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     game_id = Column(Integer, ForeignKey("game_dates.id", ondelete="CASCADE"), primary_key=True)
 
+    # Флаги для отслеживания отправленных уведомлений подписчикам
+    is_equator_notified = Column(Boolean, nullable=False, default=False, server_default=text('false'))
+    is_2days_before_end_notified = Column(Boolean, nullable=False, default=False, server_default=text('false'))
+    is_game_started_notified = Column(Boolean, nullable=False, default=False, server_default=text('false'))
+
     # Связь с пользователем
     user = relationship("User", backref=backref("subscribed_games", cascade="all, delete-orphan"))
     # Связь с игрой
@@ -138,6 +143,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     telegram_id = Column(BigInteger, nullable=False, unique=True)
     nickname = Column(String, nullable=False)
+    bot_blocked = Column(Boolean, nullable=False, default=False, server_default=text('false'))
 
     def __repr__(self):
         return f"<User(id={self.id}, telegram_id={self.telegram_id}, nickname='{self.nickname}')>"

@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from db.dao.base import BaseDAO
 from db.models import UserGameSubscription, UserGameRole, User, GameDate
@@ -58,6 +58,68 @@ class UserGameSubscriptionDAO(BaseDAO):
 
             existing_subscription = await self.get(user_id=user.id, game_id=game_id)
             return existing_subscription is not None
+
+    async def update_notification_flag(
+        self,
+        user_id: int,  # Внутренний id из users.id
+        game_id: int,
+        flag_name: str,
+        value: bool
+    ) -> None:
+        """Обновляет флаг уведомления для подписки"""
+        async with self.session_factory() as session:
+            stmt = update(UserGameSubscription).where(
+                UserGameSubscription.user_id == user_id,
+                UserGameSubscription.game_id == game_id
+            ).values({flag_name: value})
+            await session.execute(stmt)
+            await session.commit()
+
+    async def get_subscriptions_for_notification(
+        self,
+        game_id: int,
+        notification_type: str
+    ) -> list[dict]:
+        """Возвращает подписчиков для уведомления (фильтрует по bot_blocked и флагу)"""
+        async with self.session_factory() as session:
+            flag_map = {
+                "equator": UserGameSubscription.is_equator_notified,
+                "2days_before_end": UserGameSubscription.is_2days_before_end_notified,
+                "game_started": UserGameSubscription.is_game_started_notified
+            }
+
+            stmt = (
+                select(
+                    User.id.label("user_id"),
+                    User.telegram_id,
+                    User.nickname,
+                    UserGameSubscription.is_equator_notified,
+                    UserGameSubscription.is_2days_before_end_notified,
+                    UserGameSubscription.is_game_started_notified
+                )
+                .join(User, UserGameSubscription.user_id == User.id)
+                .where(
+                    UserGameSubscription.game_id == game_id,
+                    User.bot_blocked == False,
+                    flag_map[notification_type] == False
+                )
+            )
+
+            result = await session.execute(stmt)
+            return [dict(row) for row in result.mappings().all()]
+
+    async def reset_notification_flags_for_game(self, game_id: int) -> None:
+        """Сбрасывает все флаги уведомлений для всех подписчиков игры"""
+        async with self.session_factory() as session:
+            stmt = update(UserGameSubscription).where(
+                UserGameSubscription.game_id == game_id
+            ).values({
+                "is_equator_notified": False,
+                "is_2days_before_end_notified": False,
+                "is_game_started_notified": False
+            })
+            await session.execute(stmt)
+            await session.commit()
 
 
 class UserGameRoleDAO(BaseDAO):

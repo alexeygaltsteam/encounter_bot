@@ -148,3 +148,16 @@ def create_team_search_menu_keyboard(game_id: int, is_searching: bool, players_c
                                                                                     action="cancel_search").pack())])
 
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def subscriber_notification_keyboard(game_id: int) -> InlineKeyboardMarkup:
+    """Клавиатура для уведомлений подписчикам - ИСПОЛЬЗУЕТ существующий handler"""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="❌ Отписаться от игры",
+            callback_data=SubscribeCallbackData(
+                game_id=game_id,
+                action="unsubscribe"
+            ).pack()
+        )]
+    ])
