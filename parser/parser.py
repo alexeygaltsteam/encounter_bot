@@ -187,6 +187,13 @@ async def gather_additional_game_data(session: aiohttp.ClientSession, game_data:
         game.update_end_date(additional_data.end_date)
         game.image = additional_data.image
 
+        # Логируем игры, у которых не найдено изображение
+        if game.image is None:
+            parser_logger.warning(
+                f"Изображение не найдено на странице игры ID={game.id}. "
+                f"Будет использовано изображение по умолчанию. Ссылка: {game.link}"
+            )
+
 
 async def run_parsing() -> None:
     """
@@ -264,14 +271,23 @@ async def parsing_active_games() -> None:
         if len(games_to_complete) > 10:
             parser_logger.warning(f"⚠️ Подозрительно много игр для COMPLETED: {len(games_to_complete)}. Проверьте парсер!")
         if games_to_complete:
-            parser_logger.info(f"Переводим в COMPLETED {len(games_to_complete)} игр: {games_to_complete}")
+            # Получаем информацию о каждой игре для детального логирования
+            games_details = await game_dao.get_all()
+            games_to_complete_details = {g.id: g for g in games_details if g.id in games_to_complete}
+
+            parser_logger.info(f"Переводим в COMPLETED {len(games_to_complete)} игр (причина: не найдены в списке активных на сайте):")
+            for game_id in games_to_complete:
+                game = games_to_complete_details.get(game_id)
+                if game:
+                    parser_logger.info(f"  - ID={game_id}, ссылка: https://{game.domain}/GameDetails.aspx?gid={game_id}")
+
             async with game_dao.session_factory() as db_session:
                 await db_session.execute(
                     update(GameModel)
                     .where(GameModel.id.in_(games_to_complete))
                     .values(state=GameState.COMPLETED.value)
                 )
-                parser_logger.info("Статусы игр успешно обновлены.")
+                parser_logger.info(f"Статусы успешно обновлены для {len(games_to_complete)} игр.")
 
                 await db_session.execute(
                     delete(UserGameSubscription).where(UserGameSubscription.game_id.in_(games_to_complete))
@@ -307,15 +323,35 @@ async def parsing_active_games() -> None:
             for game_id in missing_upcoming_games:
                 game = next((g for g in active_game_data if g.id == game_id), None)
                 if game:
-                    parser_logger.info(f"Обновляем игру {game_id}, переводим в ACTIVE и обновляем поля")
                     async with game_dao.session_factory() as db_session:
                         existing = await db_session.get(GameModel, game_id)
-                        current_image_path = existing.image if existing else None
 
+                        # Подготовка данных для логирования изменений
+                        changes = []
+                        if existing:
+                            if existing.name != game.name:
+                                changes.append(f"name: '{existing.name}' → '{game.name}'")
+                            if existing.start_date != game.start_date:
+                                changes.append(f"start_date: {existing.start_date} → {game.start_date}")
+                            if existing.end_date != game.end_date:
+                                changes.append(f"end_date: {existing.end_date} → {game.end_date}")
+                            if existing.state != GameState.ACTIVE.value:
+                                changes.append(f"state: {existing.state} → ACTIVE")
+
+                        current_image_path = existing.image if existing else None
                         local_image = None
                         if game.image and isinstance(game.image, str) and game.image.startswith(("http://", "https://")):
                             local_image = await download_image(game_id=game.id, image_url=game.image)
                         image_to_store = local_image if local_image is not None else current_image_path
+
+                        if existing and existing.image != image_to_store:
+                            changes.append(f"image: {existing.image} → {image_to_store}")
+
+                        parser_logger.info(
+                            f"Обновляем игру ID={game_id}, переводим в ACTIVE. "
+                            f"Изменения: {', '.join(changes) if changes else 'нет изменений'}. "
+                            f"Ссылка: https://{game.domain}/GameDetails.aspx?gid={game_id}"
+                        )
 
                         await db_session.execute(
                             update(GameModel)
@@ -328,7 +364,7 @@ async def parsing_active_games() -> None:
                                     state=GameState.ACTIVE.value)
                         )
                         await db_session.commit()
-                        parser_logger.info(f"{game_id} обновлена")
+                        parser_logger.info(f"Игра ID={game_id} успешно обновлена")
 
                 else:
                     games_to_archive.append(game_id)

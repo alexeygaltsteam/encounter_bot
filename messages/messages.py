@@ -98,7 +98,10 @@ async def send_game_message(bot, game, message_type: str):
         photo_path = Path(f"images/{file_name}").resolve()
 
         if not photo_path.exists() or not photo_path.is_file():
-            bot_logger.info(f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию.")
+            bot_logger.info(
+                f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию. "
+                f"Игра ID={game.id}, ссылка: {game.link}"
+            )
             photo_path = Path("images/DEFAULT.jpg").resolve()
 
         for chat in CHATS_ID:
@@ -206,7 +209,10 @@ async def send_game_message_date_change(
         photo_path = Path(f"images/{file_name}").resolve()
 
         if not photo_path.exists() or not photo_path.is_file():
-            bot_logger.info(f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию.")
+            bot_logger.info(
+                f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию. "
+                f"Игра ID={game.id}, ссылка: {game.link}"
+            )
             photo_path = Path("images/DEFAULT.jpg").resolve()
 
         for chat in CHATS_ID:

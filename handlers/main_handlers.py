@@ -134,7 +134,10 @@ async def upcoming_games_command(message: Message):
             file_name = str(game_id) + '.' + image_url.split('.')[-1] if image_url else None
             photo_path = Path(f"images/{file_name}").resolve()
             if not photo_path.exists() or not photo_path.is_file():
-                bot_logger.info(f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию.")
+                bot_logger.info(
+                    f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию. "
+                    f"Игра ID={game_id}, ссылка: {game_link}"
+                )
                 photo_path = Path("images/DEFAULT.jpg").resolve()
 
             await message.answer_photo(
@@ -174,7 +177,10 @@ async def active_games_command(message: Message):
             file_name = str(game_id) + '.' + image_url.split('.')[-1] if image_url else None
             photo_path = Path(f"images/{file_name}").resolve()
             if not photo_path.exists() or not photo_path.is_file():
-                bot_logger.info(f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию.")
+                bot_logger.info(
+                    f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию. "
+                    f"Игра ID={game_id}, ссылка: {game_link}"
+                )
                 photo_path = Path("images/DEFAULT.jpg").resolve()
 
             await message.answer_photo(
@@ -267,7 +273,10 @@ async def subs_command(message: types.Message):
         file_name = str(game.id) + '.' + image_url.split('.')[-1] if image_url else None
         photo_path = Path(f"images/{file_name}").resolve()
         if not photo_path.exists() or not photo_path.is_file():
-            bot_logger.info(f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию.")
+            bot_logger.info(
+                f"❌ Файл {photo_path} не найден. Используем изображение по умолчанию. "
+                f"Игра ID={game.id}, ссылка: {game.link}"
+            )
             photo_path = Path("images/DEFAULT.jpg").resolve()
 
         await message.answer_photo(

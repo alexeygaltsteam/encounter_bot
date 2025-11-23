@@ -28,6 +28,10 @@ async def update_game_states():
 
         async with game_dao.session_factory() as session:
             for game in games:
+                # Не трогаем игры, которые уже завершены парсером
+                if game.state == GameState.COMPLETED.value:
+                    continue
+
                 game_start_date = game.start_date.replace(tzinfo=None)
 
                 if game_start_date > now:
@@ -38,7 +42,21 @@ async def update_game_states():
                     new_state = GameState.COMPLETED
 
                 if game.state != new_state.value:
-                    bot_logger.info(f"Updating game {game.id} from {game.state} to {new_state}.")
+                    # Определяем причину смены статуса
+                    if new_state == GameState.UPCOMING:
+                        reason = f"start_date ({game_start_date}) > now ({now})"
+                    elif new_state == GameState.ACTIVE:
+                        if game.end_date is None:
+                            reason = f"start_date ({game_start_date}) <= now ({now}), end_date=None"
+                        else:
+                            reason = f"start_date ({game_start_date}) <= now ({now}), end_date ({game.end_date.replace(tzinfo=None)}) > now"
+                    else:  # COMPLETED
+                        reason = f"start_date ({game_start_date}) <= now ({now}), end_date ({game.end_date.replace(tzinfo=None) if game.end_date else 'None'}) <= now"
+
+                    bot_logger.info(
+                        f"Updating game {game.id} from {game.state} to {new_state}. "
+                        f"Причина: {reason}. Ссылка: https://{game.domain}/GameDetails.aspx?gid={game.id}"
+                    )
                     game.state = new_state.value
                     await session.merge(game)
                     updated_counts[new_state] += 1
