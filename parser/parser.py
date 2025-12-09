@@ -2,8 +2,10 @@ from typing import Optional, List
 import aiohttp
 import asyncio
 import re
+from urllib.parse import urlparse, urlunparse
 from bs4 import BeautifulSoup
 from sqlalchemy import update, delete
+from typing import List, Optional, Tuple
 
 from db.models import GameState, GameDate as GameModel, UserGameSubscription, UserGameRole
 from loader import game_dao
@@ -16,9 +18,10 @@ GAMES_URLS = [
     ("https://kovrov.encounter.cx/GameCalendar.aspx?status=Coming&type=Single&zone=Virtual", "single")
 ]
 
+# Используем kovrov.encounter.cx как основное зеркало для активных игр
 ACTIVE_GAMES_URLS = [
-    ("https://arcticsearch.encounter.cx/GameCalendar.aspx?status=Active&type=Team&zone=Virtual", "team"),
-    ("https://arcticsearch.encounter.cx/GameCalendar.aspx?status=Active&type=Single&zone=Virtual", "single")
+    ("https://kovrov.encounter.cx/GameCalendar.aspx?status=Active&type=Team&zone=Virtual", "team"),
+    ("https://kovrov.encounter.cx/GameCalendar.aspx?status=Active&type=Single&zone=Virtual", "single")
 ]
 
 DEFAULT_HEADERS = {
@@ -28,23 +31,46 @@ DEFAULT_HEADERS = {
 }
 
 
-async def fetch_html(session: aiohttp.ClientSession, url: str, headers: Optional[dict] = None) -> Optional[str]:
+def _build_mirror_urls(url: str) -> List[str]:
+    """Возвращает список URL с зеркалами в порядке попыток."""
+    parsed = urlparse(url)
+    host = parsed.netloc
+    mirrors = [host]
+
+    if host.endswith('.encounter.cx'):
+        base = host.replace('.encounter.cx', '')
+        mirrors.append(f"{base}.en.cx")
+        mirrors.append(f"{base}.encounter.ru")
+
+    unique_hosts = []
+    for h in mirrors:
+        if h and h not in unique_hosts:
+            unique_hosts.append(h)
+
+    return [urlunparse(parsed._replace(netloc=h)) for h in unique_hosts]
+
+
+async def fetch_html(session: aiohttp.ClientSession, url: str, headers: Optional[dict] = None) -> Tuple[Optional[str], bool]:
     """
-        Асинхронно получает HTML-страницу по заданному URL.
+        Асинхронно получает HTML-страницу по заданному URL с попытками через зеркала.
 
         :param session: Объект aiohttp.ClientSession.
         :param url: URL для загрузки.
         :param headers: HTTP-заголовки запроса.
-        :return: Текст HTML или None при ошибке.
+        :return: (Текст HTML или None при ошибке, был ли фейл всех попыток)
     """
     headers = headers or DEFAULT_HEADERS
-    try:
-        async with session.get(url, headers=headers) as response:
-            response.raise_for_status()
-            return await response.text()
-    except Exception as e:
-        parser_logger.error(f"Ошибка при загрузке {url}: {e}")
-        return None
+    attempts = _build_mirror_urls(url)
+
+    for attempt_url in attempts:
+        try:
+            async with session.get(attempt_url, headers=headers) as response:
+                response.raise_for_status()
+                return await response.text(), False
+        except Exception as e:
+            parser_logger.error(f"Ошибка при загрузке {attempt_url}: {e}")
+
+    return None, True
 
 
 def extract_pagination_links(html: str) -> List[str]:
@@ -139,29 +165,35 @@ async def parse_additional_game_info(html: Optional[str]) -> AdditionalData:
     return additional_data
 
 
-async def fetch_and_parse_games(session: aiohttp.ClientSession, url: str, game_type: str) -> List[GameDate]:
+async def fetch_and_parse_games(session: aiohttp.ClientSession, url: str, game_type: str) -> Tuple[List[GameDate], bool]:
     """
         Собирает и парсит данные игр с учетом пагинации.
 
         :param session: Объект aiohttp.ClientSession.
         :param url: URL игры.
         :param game_type: Тип игры (team или single).
-        :return: Список объектов GameDate.
+        :return: Список объектов GameDate и флаг ошибки загрузки.
     """
-    html = await fetch_html(session, url)
-    if not html:
+    fetch_failed = False
+    html, failed = await fetch_html(session, url)
+    if failed or not html:
         parser_logger.warning(f"Не удалось загрузить страницу для URL: {url}")
-        return []
+        return [], True
 
     game_data = await parse_game_data(html, game_type=game_type)
     pagination_links = extract_pagination_links(html)
 
     for link in pagination_links:
-        html = await fetch_html(session, link)
-        data = await parse_game_data(html, game_type=game_type)
+        page_html, page_failed = await fetch_html(session, link)
+        if page_failed or not page_html:
+            parser_logger.warning(f"Не удалось загрузить страницу пагинации для URL: {link}")
+            fetch_failed = True
+            continue
+
+        data = await parse_game_data(page_html, game_type=game_type)
         game_data.extend(data)
 
-    return game_data
+    return game_data, fetch_failed
 
 
 async def gather_additional_game_data(session: aiohttp.ClientSession, game_data: List[GameDate]) -> None:
@@ -171,12 +203,13 @@ async def gather_additional_game_data(session: aiohttp.ClientSession, game_data:
     :param session: Объект aiohttp.ClientSession.
     :param game_data: Список игр для обработки.
     """
-    tasks = [fetch_html(session, game.link) for game in game_data]
+    tasks = [fetch_html(session, game.link or "") for game in game_data]
     html_results = await asyncio.gather(*tasks)
 
     tasks_for_additional_data = []
-    for game, html in zip(game_data, html_results):
-        if html is None:
+    for game, fetch_result in zip(game_data, html_results):
+        html, failed = fetch_result
+        if failed or html is None:
             parser_logger.warning(f"Не удалось загрузить HTML для игры ID={game.id}, ссылка: {game.link}")
         tasks_for_additional_data.append(parse_additional_game_info(html))
 
@@ -206,7 +239,7 @@ async def run_parsing() -> None:
     async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
         all_game_data = []
         for url, game_type in GAMES_URLS:
-            game_data = await fetch_and_parse_games(session, url, game_type)
+            game_data, _ = await fetch_and_parse_games(session, url, game_type)
             all_game_data.extend(game_data)
 
         await gather_additional_game_data(session, all_game_data)
@@ -241,13 +274,18 @@ async def parsing_active_games() -> None:
 
     async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
         active_game_data = []
+        active_fetch_failed = False
         for url, game_type in ACTIVE_GAMES_URLS:
-            game_data = await fetch_and_parse_games(session, url, game_type)
-            if not game_data:
-                # parser_logger.info("Получен пустой результат для игры из ACTIVE_GAMES_URLS. Откатываем изменения")
+            game_data, fetch_failed = await fetch_and_parse_games(session, url, game_type)
+            if fetch_failed:
                 parser_logger.info("Получен пустой результат для игры из ACTIVE_GAMES_URLS.")
+                active_fetch_failed = True
                 continue
             active_game_data.extend(game_data)
+
+        if active_fetch_failed:
+            parser_logger.warning("Активные игры не обновлены: парсинг завершился с ошибками. Пропускаем изменения статусов.")
+            return
 
         await gather_additional_game_data(session, active_game_data)
         active_games_id = {game.id for game in active_game_data}
@@ -266,6 +304,54 @@ async def parsing_active_games() -> None:
                 if game:
                     await game_dao.create(**game.model_dump())
             parser_logger.info(f"Обновлено полей для {len(still_active_games)} активных игр")
+
+        new_active_games = active_games_id - active_games_from_db
+        if new_active_games:
+            parser_logger.info(f"Возвращаем в ACTIVE {len(new_active_games)} игр, которые были неактивны/архивированы")
+            async with game_dao.session_factory() as db_session:
+                for game_id in new_active_games:
+                    game = next((g for g in active_game_data if g.id == game_id), None)
+                    if not game:
+                        continue
+
+                    existing = await db_session.get(GameModel, game_id)
+
+                    current_image_path = existing.image if existing else None
+                    local_image = None
+                    if game.image and isinstance(game.image, str) and game.image.startswith(("http://", "https://")):
+                        local_image = await download_image(game_id=game.id, image_url=game.image)
+                    image_to_store = local_image if local_image is not None else current_image_path
+
+                    if existing:
+                        existing.name = game.name
+                        existing.start_date = game.start_date
+                        existing.end_date = game.end_date
+                        existing.image = image_to_store
+                        existing.image_url = game.image
+                        existing.state = GameState.ACTIVE.value
+                        db_session.add(existing)
+                    else:
+                        db_session.add(
+                            GameModel(
+                                id=game.id,
+                                domain=game.domain,
+                                start_date=game.start_date,
+                                end_date=game.end_date,
+                                name=game.name,
+                                author=game.author,
+                                price=game.price,
+                                link=game.link,
+                                game_type=game.game_type,
+                                max_players=game.max_players,
+                                image=image_to_store,
+                                image_url=game.image,
+                                state=GameState.ACTIVE.value,
+                                is_announcement_sent=False,
+                                is_start_message_sent=False,
+                            )
+                        )
+
+                await db_session.commit()
 
         games_to_complete = active_games_from_db - active_games_id
         if len(games_to_complete) > 10:
@@ -302,8 +388,8 @@ async def parsing_active_games() -> None:
         upcoming_games_data = []
 
         for url, game_type in GAMES_URLS:
-            game_data = await fetch_and_parse_games(session, url, game_type)
-            if not game_data:
+            game_data, fetch_failed = await fetch_and_parse_games(session, url, game_type)
+            if fetch_failed:
                 parser_logger.info("Получен пустой результат для игры из GAMES_URLS. Откатываем изменения")
                 continue
             upcoming_games_data.extend(game_data)
