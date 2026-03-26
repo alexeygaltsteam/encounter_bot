@@ -2,6 +2,7 @@ from typing import Optional, List
 import aiohttp
 import asyncio
 import re
+from datetime import datetime
 from urllib.parse import urlparse, urlunparse
 from bs4 import BeautifulSoup
 from sqlalchemy import update, delete
@@ -9,7 +10,7 @@ from typing import List, Optional, Tuple
 
 from db.models import GameState, GameDate as GameModel, UserGameSubscription, UserGameRole
 from loader import game_dao
-from .schemas import GameDate, AdditionalData
+from .schemas import GameDate, AdditionalData, translate_date, EMPTY_FIELD
 from .utils import extract_limit, download_image
 from logging_config import parser_logger
 
@@ -85,12 +86,13 @@ def extract_pagination_links(html: str) -> List[str]:
     return [a['href'] for a in pagination_td.find_all('a', href=True)] if pagination_td else []
 
 
-async def parse_game_data(html: str, game_type: str) -> List[GameDate]:
+async def parse_game_data(html: str, game_type: str, is_active: bool = False) -> List[GameDate]:
     """
         Парсит данные игр из HTML.
 
         :param html: Текст HTML.
         :param game_type: Тип игры (team или single).
+        :param is_active: True для Active-календаря (другая раскладка столбцов).
         :return: Список объектов GameDate.
     """
     soup = BeautifulSoup(html, "html.parser")
@@ -101,15 +103,41 @@ async def parse_game_data(html: str, game_type: str) -> List[GameDate]:
         cells = row.find_all("td")
         row_data = [cell.get_text(strip=True) for cell in cells]
 
-        game_date = GameDate(
-            id=row_data[1].split('/')[1],
-            domain=row_data[3].replace('.en.cx', '.encounter.cx'),
-            start_date=row_data[4],
-            name=row_data[5],
-            author=re.sub(r'\s+', '', row_data[6]),
-            price=row_data[7],
-            game_type=game_type
-        )
+        if is_active:
+            # Active: [0]flag [1]id [2]timer [3]domain [4]start [5]end [6]name [7]author [8]in_game [9]max_players(team)
+            end_date = None
+            try:
+                translated = translate_date(row_data[5])
+                end_date = datetime.strptime(translated, "%d %B %Y г. %H:%M:%S")
+            except (ValueError, IndexError):
+                parser_logger.warning(f"Не удалось распарсить end_date из календаря: '{row_data[5] if len(row_data) > 5 else 'N/A'}'")
+
+            max_players = None
+            if game_type == "team" and len(row_data) > 9:
+                max_players = extract_limit(row_data[9])
+
+            game_date = GameDate(
+                id=row_data[1].split('/')[1],
+                domain=row_data[3].replace('.en.cx', '.encounter.cx'),
+                start_date=row_data[4],
+                end_date=end_date,
+                name=row_data[6],
+                author=re.sub(r'\s+', '', row_data[7]),
+                price="0",
+                game_type=game_type,
+                max_players=max_players,
+            )
+        else:
+            # Coming: [0]flag [1]id [2]countdown [3]domain [4]start [5]name [6]author [7]price
+            game_date = GameDate(
+                id=row_data[1].split('/')[1],
+                domain=row_data[3].replace('.en.cx', '.encounter.cx'),
+                start_date=row_data[4],
+                name=row_data[5],
+                author=re.sub(r'\s+', '', row_data[6]),
+                price=row_data[7],
+                game_type=game_type
+            )
 
         games.append(game_date)
 
@@ -165,13 +193,14 @@ async def parse_additional_game_info(html: Optional[str]) -> AdditionalData:
     return additional_data
 
 
-async def fetch_and_parse_games(session: aiohttp.ClientSession, url: str, game_type: str) -> Tuple[List[GameDate], bool]:
+async def fetch_and_parse_games(session: aiohttp.ClientSession, url: str, game_type: str, is_active: bool = False) -> Tuple[List[GameDate], bool]:
     """
         Собирает и парсит данные игр с учетом пагинации.
 
         :param session: Объект aiohttp.ClientSession.
         :param url: URL игры.
         :param game_type: Тип игры (team или single).
+        :param is_active: True для Active-календаря.
         :return: Список объектов GameDate и флаг ошибки загрузки.
     """
     fetch_failed = False
@@ -180,7 +209,7 @@ async def fetch_and_parse_games(session: aiohttp.ClientSession, url: str, game_t
         parser_logger.warning(f"Не удалось загрузить страницу для URL: {url}")
         return [], True
 
-    game_data = await parse_game_data(html, game_type=game_type)
+    game_data = await parse_game_data(html, game_type=game_type, is_active=is_active)
     pagination_links = extract_pagination_links(html)
 
     for link in pagination_links:
@@ -190,7 +219,7 @@ async def fetch_and_parse_games(session: aiohttp.ClientSession, url: str, game_t
             fetch_failed = True
             continue
 
-        data = await parse_game_data(page_html, game_type=game_type)
+        data = await parse_game_data(page_html, game_type=game_type, is_active=is_active)
         game_data.extend(data)
 
     return game_data, fetch_failed
@@ -216,8 +245,13 @@ async def gather_additional_game_data(session: aiohttp.ClientSession, game_data:
     additional_data_results = await asyncio.gather(*tasks_for_additional_data)
 
     for game, additional_data in zip(game_data, additional_data_results):
-        game.max_players = extract_limit(additional_data.max_players)
-        game.update_end_date(additional_data.end_date)
+        parsed_max = extract_limit(additional_data.max_players)
+        if parsed_max > 0 or game.max_players is None:
+            game.max_players = parsed_max
+
+        if additional_data.end_date != EMPTY_FIELD:
+            game.update_end_date(additional_data.end_date)
+
         game.image = additional_data.image
 
         # Логируем игры, у которых не найдено изображение
@@ -276,7 +310,7 @@ async def parsing_active_games() -> None:
         active_game_data = []
         active_fetch_failed = False
         for url, game_type in ACTIVE_GAMES_URLS:
-            game_data, fetch_failed = await fetch_and_parse_games(session, url, game_type)
+            game_data, fetch_failed = await fetch_and_parse_games(session, url, game_type, is_active=True)
             if fetch_failed:
                 parser_logger.info("Получен пустой результат для игры из ACTIVE_GAMES_URLS.")
                 active_fetch_failed = True
