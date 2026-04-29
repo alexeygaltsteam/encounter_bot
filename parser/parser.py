@@ -103,6 +103,18 @@ async def parse_game_data(html: str, game_type: str, is_active: bool = False) ->
         cells = row.find_all("td")
         row_data = [cell.get_text(strip=True) for cell in cells]
 
+        min_len = 10 if is_active else 8
+        if len(row_data) < min_len:
+            parser_logger.warning(
+                f"Skip row: not enough columns for {'active' if is_active else 'coming'} "
+                f"({len(row_data)} < {min_len}): {row_data}"
+            )
+            continue
+
+        if ".en.cx" in row_data[4] or ".encounter.cx" in row_data[4]:
+            parser_logger.warning(f"Skip row: invalid start_date='{row_data[4]}', row={row_data}")
+            continue
+
         if is_active:
             # Active: [0]flag [1]id [2]timer [3]domain [4]start [5]end [6]name [7]author [8]in_game [9]max_players(team)
             end_date = None
@@ -116,28 +128,36 @@ async def parse_game_data(html: str, game_type: str, is_active: bool = False) ->
             if game_type == "team" and len(row_data) > 9:
                 max_players = extract_limit(row_data[9])
 
-            game_date = GameDate(
-                id=row_data[1].split('/')[1],
-                domain=row_data[3].replace('.en.cx', '.encounter.cx'),
-                start_date=row_data[4],
-                end_date=end_date,
-                name=row_data[6],
-                author=re.sub(r'\s+', '', row_data[7]),
-                price="0",
-                game_type=game_type,
-                max_players=max_players,
-            )
+            try:
+                game_date = GameDate(
+                    id=row_data[1].split('/')[1],
+                    domain=row_data[3].replace('.en.cx', '.encounter.cx'),
+                    start_date=row_data[4],
+                    end_date=end_date,
+                    name=row_data[6],
+                    author=re.sub(r'\s+', '', row_data[7]),
+                    price="0",
+                    game_type=game_type,
+                    max_players=max_players,
+                )
+            except Exception as e:
+                parser_logger.warning(f"Skip row: validation failed: {e}; row={row_data}")
+                continue
         else:
             # Coming: [0]flag [1]id [2]countdown [3]domain [4]start [5]name [6]author [7]price
-            game_date = GameDate(
-                id=row_data[1].split('/')[1],
-                domain=row_data[3].replace('.en.cx', '.encounter.cx'),
-                start_date=row_data[4],
-                name=row_data[5],
-                author=re.sub(r'\s+', '', row_data[6]),
-                price=row_data[7],
-                game_type=game_type
-            )
+            try:
+                game_date = GameDate(
+                    id=row_data[1].split('/')[1],
+                    domain=row_data[3].replace('.en.cx', '.encounter.cx'),
+                    start_date=row_data[4],
+                    name=row_data[5],
+                    author=re.sub(r'\s+', '', row_data[6]),
+                    price=row_data[7],
+                    game_type=game_type
+                )
+            except Exception as e:
+                parser_logger.warning(f"Skip row: validation failed: {e}; row={row_data}")
+                continue
 
         games.append(game_date)
 
