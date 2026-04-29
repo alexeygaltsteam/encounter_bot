@@ -13,6 +13,7 @@ services:
       DB_NAME: $DB_NAME
       BOT_TOKEN: $BOT_TOKEN
       CHATS_ID: $CHATS_ID
+      TELEGRAM_API_BASE: ${{ secrets.TELEGRAM_API_BASE }}
 
     command: sh -c "alembic upgrade head && python main.py"
     depends_on:
