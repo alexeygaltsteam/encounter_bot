@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     DB_NAME: str
     BOT_TOKEN: str
     CHATS_ID: str
+    TELEGRAM_API_BASE: str = "http://185.233.80.76:8080/tgapi"
 
     @property
     def get_database_url(self):
@@ -41,6 +42,7 @@ class Settings(BaseSettings):
         if self.CHATS_ID:
             return [chat_id.strip() for chat_id in self.CHATS_ID.split(',')]
         return []
+
     class Config:
         env_file = '.env'
 

@@ -1,9 +1,15 @@
 from aiogram import Bot, Dispatcher
+from aiogram.client.session.aiohttp import AiohttpSession
+from aiogram.client.telegram import TelegramAPIServer
+
 from db.dao import *
 from settings import DATABASE_URL, settings
 from db import DatabaseManager
 
-bot = Bot(token=settings.BOT_TOKEN)
+api = TelegramAPIServer.from_base(settings.TELEGRAM_API_BASE)
+session = AiohttpSession(api=api)
+
+bot = Bot(token=settings.BOT_TOKEN, session=session)
 dp = Dispatcher()
 
 # storage = MemoryStorage()

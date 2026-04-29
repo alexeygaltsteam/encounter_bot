@@ -54,5 +54,6 @@ if __name__ == '__main__':
         bot_logger.error(f"Unexpected error: {e}")
     finally:
         asyncio.run(db.close())
+        asyncio.run(bot.session.close())
         bot_logger.info("Database connection closed")
         bot_logger.info("Bot stopped successfully")
